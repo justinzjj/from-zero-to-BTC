@@ -1,0 +1,57 @@
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+*.code-workspace
+.idea/
+*.swp
+*.swo
+
+# Agent 本地配置、会话和工作树
+.codex/
+.claude/
+.cursor/
+.agents/
+.aider*
+CLAUDE.local.md
+
+# 本地环境与密钥配置
+.env
+.env.*
+!.env.example
+!.env.template
+
+# C++ / CMake 编译产物
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Testing/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.exe
+*.pdb
+*.dSYM/
+a.out
+blockchain_demo
+blockchain_tests
+
+# Python 环境与缓存
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 前端演示依赖与日志
+node_modules/
+*.log

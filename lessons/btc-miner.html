@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>矿机怎样搜索区块头 · Bitcoin 家教课</title>
+<style>
+:root{color-scheme:dark;--bg:#202328;--panel:#30343b;--line:#4b515c;--text:#edf0f5;--muted:#b2bbc8;--wire:#a9bcd3;--p2p:#efb775;--state:#88cec0;--event:#c4abe7}
+:root{
+ --link:#c4d3df;--dot:#424852;--canvas:#262a30;--boundary:#596471;
+ --outline:#636d7a;--focus:#fff;--secondary:#c5ced9;--detail:#292e34;
+ --button:#383f48;--button-line:#657180;--peer:#43392f;--peer-line:#ad8558
+}
+:root[data-theme="light"]{
+ color-scheme:light;--bg:#f2f4f6;--panel:#fff;--line:#bbc5cf;--text:#192837;
+ --muted:#465866;--wire:#405e7c;--p2p:#894c11;--state:#146951;--event:#6a4588;
+ --link:#36556f;--dot:#cbd3db;--canvas:#f9fafb;--boundary:#8795a3;
+ --outline:#8c99a5;--focus:#183e61;--secondary:#475866;--detail:#e7edf1;
+ --button:#fff;--button-line:#8c99a5;--peer:#fff0dc;--peer-line:#a7753c
+}
+:root{--gold:#e7be6d;--gold-bg:#4e4129} :root[data-theme=light]{--gold:#895b12;--gold-bg:#fff0cd}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 "PingFang SC","Microsoft YaHei",sans-serif}main{max-width:1500px;margin:auto;padding:18px clamp(14px,3vw,46px) 40px}nav,header,.bar,.status,.tabs{display:flex;align-items:center;gap:10px;flex-wrap:wrap}nav{font-size:14px}a{color:var(--link)}nav button{margin-left:auto}h1{margin:14px 0 0;font-size:clamp(28px,3vw,42px);letter-spacing:-.04em}p{margin:6px 0 14px}h2{font-size:20px;margin:8px 0}button,select{font:inherit;border:1px solid var(--outline);color:var(--text);background:var(--button);border-radius:6px;padding:5px 12px;cursor:pointer}button:disabled{opacity:.4;cursor:default}button[aria-pressed=true]{background:var(--text);color:var(--bg)}.tabs{margin:14px 0}.case,.hint{color:var(--secondary)}.canvas{overflow:auto;border:1px solid var(--line);border-radius:10px;background:radial-gradient(var(--dot) 1px,transparent 1px) 0 0/20px 20px}svg{display:block;width:100%;min-width:980px}svg text{fill:var(--text)}.boundary{fill:var(--canvas);stroke:var(--boundary);stroke-dasharray:6 4}.boundary.inner{fill:none;stroke-dasharray:2 4}.zone{font-size:15px;font-weight:650}.module{cursor:pointer}.module rect{fill:var(--panel);stroke:var(--outline)}.module.core rect{fill:var(--gold-bg);stroke:var(--gold);stroke-width:2.4px}.module:focus rect,.module:hover rect{stroke:var(--focus);stroke-width:3}.module .id{font:14px ui-monospace,monospace;fill:var(--secondary)}.name{font-size:20px;font-weight:650}.sub{font-size:14px;fill:var(--secondary)}
+.edge path{fill:none;stroke:var(--wire);stroke-width:1.7}.edge text{font-size:13px;text-anchor:middle;paint-order:stroke;stroke:var(--canvas);stroke-width:5;stroke-linejoin:round}.playing .edge:not(.active){opacity:.16}.playing .edge:not(.active) text{opacity:.65}.edge.active path{stroke:var(--state);stroke-width:3}.edge.active text{fill:var(--state);font-weight:700}
+.bar{justify-content:space-between}.bar select{max-width:100%}.status{gap:8px 24px;color:var(--secondary);border-bottom:1px solid var(--line);padding:8px 0}.status b{color:var(--text)}.panel{margin-top:12px;background:var(--detail);border-left:3px solid var(--state);padding:12px 18px}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.steps dt,dialog dt,.mark{font-size:14px;color:var(--state);font-weight:650}.steps dd,dialog dd{margin:3px 0 10px}.steps{margin:8px 0}.gold{color:var(--gold)}dialog{background:var(--panel);color:var(--text);border:1px solid var(--outline);border-top:3px solid var(--gold);border-radius:10px;width:min(660px,94vw);max-height:88vh;padding:20px}dialog::backdrop{background:#10151bc9}dialog header{justify-content:space-between}dialog dt{margin-top:10px}dialog dd{white-space:pre-line}dialog button.topic{display:block;text-align:left;margin:7px 0;width:100%}dialog a{display:inline-block;margin:5px 12px 0 0}button:focus-visible,select:focus-visible{outline:2px solid var(--focus)}[hidden]{display:none!important}@media(max-width:700px){.steps{grid-template-columns:1fr;gap:0}main{padding:12px}.bar{align-items:start}nav{gap:6px}}
+#stage-list{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}#stage-list button{font-size:14px;padding:3px 9px}#stage-list button[aria-current=step]{background:var(--state);color:var(--bg);border-color:var(--state);font-weight:650}#controls{align-items:flex-end;margin-bottom:10px}
+
+main{max-width:1560px;margin:auto;padding:20px clamp(14px,3vw,52px) 40px}
+main h1{font-size:clamp(27px,3vw,42px);letter-spacing:-.045em}
+.course-nav{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;margin:0 0 14px;padding:0 0 9px;border-bottom:1px solid var(--line);font-size:15px}
+.course-links{display:flex;flex-wrap:wrap;gap:4px}
+.course-nav .course-links a{display:block;margin:0;padding:5px 10px;border-radius:5px;text-decoration:none;color:var(--secondary);font-weight:600}
+.course-nav .course-links a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:inset 0 -2px #c39850}
+.course-nav a:hover{background:var(--panel)}
+.course-nav #theme{margin:0;padding:5px 10px;background:var(--button);border:1px solid var(--button-line);border-radius:6px;color:var(--text);font:inherit;cursor:pointer}
+.course-nav :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(max-width:650px){main{padding:12px}.course-nav{gap:6px}.course-nav .course-links a{padding:5px 7px}}
+a.btc-term{color:inherit;text-decoration:underline dotted;text-decoration-color:var(--focus,currentColor);text-underline-offset:.19em}
+a.btc-term:hover,a.btc-term:focus-visible{text-decoration-style:solid;outline-offset:3px}
+</style></head><body><main>
+<nav class="course-nav" aria-label="Bitcoin 课件"><div class="course-links"><a href="btc-deployment.html">实际部署</a><a href="btc-wallet.html">钱包</a><a href="btc-full-node.html">全节点</a><a href="btc-miner.html" aria-current="page">矿机</a></div><button type="button" id="theme">切换浅色</button></nav>
+<h1>矿机怎样搜索区块头</h1>
+<p class="case">Alice 用 100,000 聪的 U 支付 B，Bob 收 60,000 聪，找零 39,000 聪，手续费 1,000 聪。矿池准备用作业 J 把 B 打进 K。</p>
+<div class="tabs"><button data-mode="arch">组件架构</button><button data-mode="share">普通份额 · nonce a</button><button data-mode="block">命中网络目标 · nonce b</button></div>
+<div class="bar" id="controls" hidden><div id="stage-list" role="group" aria-label="流程步骤"></div><div><button id="prev">上一步</button> <button id="next">下一步</button></div></div>
+<div class="status" aria-live="polite"><span>工人份额　<b id="credit"></b></span><span>池方链尖　<b id="tip"></b></span><span>Bob 钱包　<b id="bob"></b></span></div>
+<div class="canvas" tabindex="0" aria-label="部署图，可横向滚动并点选模块"><svg id="map" viewBox="0 0 1240 437" aria-label="矿池、矿场与 Bob 的全节点"><defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="var(--wire)"/></marker>
+<marker id="current" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="var(--state)"/></marker></defs>
+<rect class="boundary" x="12" y="10" width="1216" height="179" rx="10"/><text class="zone" x="30" y="35">矿池 · 软件职责</text>
+<rect class="boundary" x="232" y="244" width="996" height="183" rx="10"/><text class="zone" x="250" y="271">矿场 · ASIC 矿机</text>
+<rect class="boundary inner" x="475" y="277" width="736" height="137" rx="8"/><text class="zone" x="488" y="299">控制板 · 固件</text>
+<rect class="boundary" x="12" y="244" width="206" height="183" rx="10"/><text class="zone" x="24" y="271">外部验证节点</text>
+<g id="edges"></g><g id="nodes"></g></svg></div>
+<section class="panel" aria-live="polite"><span class="mark" id="mark"></span><h2 id="title"></h2><div id="story"></div></section>
+<p class="hint">点击模块查看内部组成和知识卡。金色框标记场景重点，青色箭头表示当前消息。两种结果各自从同一份 J 起算。</p>
+<dialog id="info" aria-labelledby="infoTitle"><header><strong id="crumb"></strong><button id="back"></button></header><h2 id="infoTitle"></h2><div id="body"></div></dialog></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const modules={
+P1:[36,90,'池方全节点','验证并传播交易与区块','链状态、UTXO 集、交易池、验证与传播','链尖 P、可用旧输出、完整 B 和收到的区块','给 P2 提供组块依据，验证 P4 提交的完整 K。'],
+P2:[343,90,'模板构造','选入 B 并准备见证承诺','交易选择、费用统计、coinbase 与见证承诺构造','父块、有序交易、费用、奖励上限和见证材料','固定交易集合及顺序，交 P3 生成作业。'],
+P3:[650,90,'作业协调','下发 J，接收矿机提交','作业生成、会话管理、提交入口','J 对应的原模板和作业字段，会话的额外 nonce 参数与份额难度','将模板变成可下发的作业，提交时找回上下文。'],
+P4:[969,90,'结果复核','复算、记工并重建 K','头重建、目标比较、去重记工、区块组装','原作业、已接受结果、工人份额记录和候选块','复算有效份额，达到网络目标时重建 K。'],
+M1:[995,315,'矿池连接','接作业并提交份额','Stratum 客户端、活动作业表、请求答复匹配','工人名、会话参数、有效作业及待答复请求','关联作业与会话，把合格结果提交给矿池。'],
+M2:[745,315,'候选头准备','拼 coinbase 并算根','额外 nonce 分配、coinbase 拼接、分支计算、头编码','作业字段、extraNonce2、coinbase txid、根和固定头字段','为同一组交易生成可搜索的一批头。'],
+M3:[492,315,'芯片驱动','分配任务并复算回报','任务分配、板内收发、回报筛选','本地任务 L 到头字段、J、extraNonce2、时间和份额目标的映射','派发计算数据，按 L 找回原头并筛出可提交结果。'],
+H1:[250,315,'ASIC 芯片','搜索 nonce，回报候选值','任务寄存器、搜索逻辑、SHA-256 电路、回报接口','计算数据、正在尝试的 nonce 和待回报结果','并行尝试候选头，向控制器回报本地任务号与 nonce。'],
+V1:[24,315,'Bob 的全节点','验块并选择活动链','区块接收、共识验证、链选择、钱包通知','自己的区块索引、活动链、UTXO 集及 B 所在块','独立验证 K，钱包按本地活动链计算确认数。']
+};
+const edges={
+template:['M226 129H343',284,119,'链尖、完整 B'],
+job:['M533 129H650',592,119,'有序模板'],
+notify:['M720 168V207H1050V315',887,202,'mining.notify · J'],
+prepare:['M995 352H935',965,340,'作业'],
+allocate:['M745 352H682',713,340,'头字段'],
+search:['M492 339H440',466,329,'任务 L'],
+report:['M440 368H492',466,388,'L、nonce'],
+client:['M580 393V405H1090V393',825,400,'J、extraNonce2、时间、nonce'],
+submit:['M1155 315V228H800V168',978,224,'mining.submit · 命中参数'],
+verify:['M840 129H969',906,118,'模板、提交值'],
+block:['M1060 90V55H130V90',610,50,'完整候选块 K'],
+peer:['M95 168V315',129,213,'P2P · K']
+};
+const NS='http://www.w3.org/2000/svg';
+function svg(parent,tag,attrs,label){
+ const el=document.createElementNS(NS,tag);
+ for(const [key,value] of Object.entries(attrs))el.setAttribute(key,value);
+ if(label)el.textContent=label;
+ parent.append(el);return el;
+}
+for(const [id,[path,x,y,label]] of Object.entries(edges)){
+ const g=svg($('edges'),'g',{class:'edge','data-edge':id});
+ svg(g,'path',{d:path,'marker-end':'url(#arrow)'});
+ svg(g,'text',{x,y},label);
+}
+for(const [id,[x,y,name,sub]] of Object.entries(modules)){
+ const g=svg($('nodes'),'g',{class:'module',transform:'translate('+x+' '+y+')',tabindex:'0',role:'button','data-id':id,'aria-label':id+' '+name+'，查看知识卡'});
+ svg(g,'rect',{width:190,height:78,rx:7});
+ svg(g,'text',{x:12,y:19,class:'id'},id);
+ svg(g,'text',{x:12,y:44,class:'name'},name);
+ svg(g,'text',{x:12,y:65,class:'sub'},sub);
+ g.onclick=()=>openModule(id);
+ g.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();openModule(id)}};
+}
+const core='https://github.com/bitcoin/bitcoin/blob/v29.0/src/';
+const sources={
+ vis06:["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+ vis12:["SatoshiBench · 交互 Merkle 树", "https://satoshibench.com/learn/merkle-tree/"],
+ vis13:["SatoshiBench · 下一块候选交易", "https://satoshibench.com/next-block/"],
+ vis14:["SatoshiBench · 区块头 PoW", "https://satoshibench.com/learn/proof-of-work/"],
+ vis15:["Bitcoin 开发指南 · Pooled Mining 与 Stratum", "https://developer.bitcoin.org/devguide/mining.html"],
+ vis16:["Bitcoin Stale Blocks · 主网分叉树", "https://bitcoin-data.github.io/stale-blocks/tree/"],
+
+ miner:['Bitcoin Core v29.0 · CreateNewBlock',core+'node/miner.cpp'],pow:['Bitcoin Core v29.0 · CheckProofOfWorkImpl',core+'pow.cpp'],merkle:['Bitcoin Core v29.0 · Merkle 根',core+'consensus/merkle.cpp'],header:['Bitcoin Core v29.0 · CBlockHeader',core+'primitives/block.h'],validation:['Bitcoin Core v29.0 · 验证与链选择',core+'validation.cpp'],bip:['BIP 141 · 见证承诺','https://bips.dev/141/'],sv1:['Stratum V1 · 消息字段','https://en.bitcoin.it/wiki/Stratum_mining_protocol'],esp:['ESP-Miner · 控制器计算实现','https://github.com/bitaxeorg/ESP-Miner/blob/master/components/stratum/mining.c'],btcd:['btcd v0.24.2 · CPU 搜索循环 solveBlock','https://github.com/btcsuite/btcd/blob/cc26860b40265e1332cca8748c5dbaf3c81cc094/mining/cpuminer/cpuminer.go#L276']};
+// 每项依次给出题目、输入、处理、输出及使用方、案例位置、失败例和出处。
+const cards={
+P1:[
+['从旧输出 U 得到 B 的费用','完整 B、B 引用的 U 和链状态。U 的 100,000 聪来自旧输出。','检查 U 可用、见证满足花费条件。100,000 − 60,000 − 39,000 = 1,000 聪。','P2 可选取完整 B，把 1,000 聪计入模板费用。','Bob 已见过 B，显示 0 次确认。','若 U 已被活动链中的另一笔交易花费，正确签名也无法使这次花费有效。','validation','vis06']],
+P2:[
+['选入 B 并固定交易顺序','父块、交易池候选交易、依赖、费用和资源限制。','选择可共同纳入块的交易，祖先先于后代。coinbase 占第 0 个位置。','P3 收到有序的完整交易、父块、费用和奖励材料。','P2 选入 B，B 的 1,000 聪计入可领取的总额。','漏掉 B 所依赖的未确认父交易，验块时会找不到旧输出。','miner','vis13'],
+['把 B 的见证承诺进块','交易的 txid、含见证的 wtxid、32 字节见证保留值。D 表示双 SHA-256，|| 表示拼接。','普通树按 txid 构造。见证树按 wtxid 构造，coinbase 叶子取 32 字节零。将 D(见证根 || 保留值) 写入 coinbase 承诺输出。','P3 保留见证材料。承诺输出参与 coinbase txid 计算，M2 最终算出头中的普通根。','B 的见证 → wtxid → 见证根 → coinbase 输出 → coinbase txid → 头中根。','见证数据遭到篡改时，原 txid 可能仍然匹配，但见证承诺校验会失败。','bip','vis12']],
+P3:[
+['把完整模板转换为作业 J','P2 模板、池方的 coinbase 构造材料。','为模板分配 J，给额外 nonce 留出位置，计算 coinbase 到普通根的兄弟哈希。保留完整交易顺序、见证材料及作业参数。','M1 收到 mining.notify(J, prevhash, coinb1, coinb2, merkle_branch, version, nBits, nTime, clean_jobs)。','B 的两个输出和见证留在池方，矿机凭分支算根。','若用新交易序列覆盖仍有效的 J，之后就无法可靠重建原块。','sv1','vis15']],
+M1:[
+['从三条消息凑齐开工材料','订阅答复中的 extraNonce1 与 extraNonce2_size、set_difficulty 的份额难度、本次 notify。','关联会话、适用于 J 的份额难度与作业字段。按 clean_jobs 处理旧作业。nBits 编码网络目标。','M2 收到造头材料，M3 随任务取得适用的份额目标。','J 跨过矿场边界。extraNonce1 已在此前订阅时取得。','重连后若沿用旧 extraNonce1，双方会拼出不同 coinbase。','sv1','vis15'],
+['用五个参数提交结果','工人名、J、extraNonce2、nTime、nonce。','固定版本部署发送 mining.submit(worker, J, extraNonce2, nTime, nonce)，按请求 ID 匹配答复。','P3 从会话找回 extraNonce1，从 J 找回父块、分支和版本，交 P4 复算。','a 与 b 使用同一个提交入口和字段格式。','将板内任务号 L 填入 J 的位置，矿池可能找不到作业。','sv1','vis15']],
+M2:[
+['拼 coinbase，沿分支算根','coinb1、extraNonce1、长度正确的 extraNonce2、coinb2 和逐层的兄弟哈希。','解码为字节。先算 x = D(coinb1 || extraNonce1 || extraNonce2 || coinb2)，得到无见证序列化的 coinbase txid。coinbase 在最左侧，每层计算 x = D(x || 兄弟哈希)。','最后的 x 写入头中 Merkle 根，由 M3 派发。池方保存完整 coinbase 所需见证材料。','若块中只有 coinbase 与 B，根就是 D(coinbase_txid字节 || B_txid字节)。','把十六进制文本字符作为原始字节哈希，会算错 txid。','esp','vis12'],
+['按字节读 80 字节区块头','偏移从 0 开始。\n0–3　version（4 字节）\n4–35　前块哈希（32）\n36–67　Merkle 根（32）\n68–71　nTime（4）\n72–75　nBits（4）\n76–79　nonce（4）','四字节整数按小端序写入，两个哈希按区块头内部字节顺序写入。nonce 从 1 变 2，末尾从 01 00 00 00 变成 02 00 00 00。','前 76 字节与 nonce 定义 H1 的输入，M3 与 P4 均可重建。','a 与 b 的头只可能在偏移 76–79 内不同。','直接照抄浏览器显示的父块哈希，可能颠倒其字节序。','header','vis14'],
+['用完一轮 nonce 后换搜索空间','仍有效的 J，固定前 76 字节的全部 2³² 个 nonce 已搜完。','M2 改 extraNonce2，重算 coinbase txid 和普通根。见证保留值和其他交易固定，见证树的 coinbase 叶子取零，因此原见证承诺仍可使用。','M3 派发新的本地任务，H1 可重新从 nonce 0 开始。池方允许时控制器也可更新时间，P3 可换模板或父块。','教学中的 a、b 同属换 extraNonce2 之前的 L，版本固定。','只把 nonce 绕回零，其他字段相同，将重复此前的搜索。','bip','esp','vis14']],
+M3:[
+['用 L 分派任务并认回结果','固定头字段、J、extraNonce2、时间和份额目标。','登记 L 到原作业参数的映射，派发计算任务。收到 (L, nonce) 后按 L 查表，复算头哈希并检查份额目标。','合格结果交 M1，使用池方作业号 J 提交。','(L, a) 与 (L, b) 查同一条记录。板内任务按逻辑字段示意，具体封包随机型变化。','过早复用 L，迟到的回报会被配到另一个头上。','esp','vis15']],
+H1:[
+['对一个 nonce 究竟算什么','当前任务的固定头数据和一个具体 nonce。','教学伪代码：digest = SHA256(SHA256(header80))。第二次输入是首次摘要的 32 个原始字节。芯片可并行搜索并复用固定部分的中间计算。','满足芯片回报条件时，向 M3 回报 L 和候选 nonce。回报门槛依机型与配置而定。','暂停①。H1 无需读取 B 的金额或见证。btcd 的 solveBlock 示范 CPU 上的搜索逻辑。','将第一次摘要转成 64 个十六进制字符再哈希，会得到错误结果。','btcd','vis14']],
+P4:[
+['手算两个目标，再换成真实目标','先手算：哈希取 0…99，份额目标 20，网络目标 3。对 21、20、3、0 分别判断两次 ≤。','21：都未达到。20（来自 a）：达到份额目标。3（来自 b）与 0：两个都达到。\n真实 h = int.from_bytes(双 SHA-256 的原始摘要, "little")。网络目标从 nBits 解码并受共识约束，份额目标取适用于 J 的值。','网络目标 < h ≤ 份额目标时 P4 只记工，h ≤ 网络目标时还要重建 K。','暂停②。20 和 3 是手算用的哈希值，a、b 是 nonce。此时 Bob 为 0。','用严格小于号会错判恰好等于门槛的结果。','pow','vis14'],
+['重建、复算与去重','提交五参数、会话 extraNonce1、J 的 coinbase 两段、分支、版本、父块、nBits 和份额目标。','检查作业有效、字段长度、时间范围，重建头并复算。教学部署以完整 80 字节头识别同一结果，原子地登记已接受结果并记工。','P4 更新唯一份额记录；P3 向 M1 返回接受或拒绝。网络命中还进入组块。','答复丢失后重发 a 只记一次。b 的头与 a 不同。','若仅用 nonce 去重，两个不同 extraNonce2 的任务都报 nonce 7 时会误删有效工作。','sv1','pow','vis15'],
+['从命中头重建完整 K','已核实的网络命中、J 的原模板、命中参数、有序完整交易与见证材料。','恢复含见证保留值的完整 coinbase，将它置于块首，按原顺序接上 B 等交易。重算普通根，与命中头核对。','完整 K 交 P1 验证与传播。','矿池保存当时的交易和顺序，矿机补齐该次 extraNonce2、时间和 nonce b。','若临时加入新到的高费交易，块体的根会与命中头不符。','merkle','bip','vis13']],
+V1:[
+['Bob 在哪一步看到一次确认','经 P2P 收到的完整 K、Bob 自己的父链、UTXO 集和共识规则。','独立验证并选择累计工作量最大的有效链。本例 K 接到当前链尖。确认数 = 活动链尖高度 − B 所在块高度 + 1。','V1 采用 K 后，钱包显示 B:0 的 60,000 聪为 1 次确认。','暂停③。收到尚未采用时为 0，采用时链尖就是 K，因此为 1。','若 K 只在侧支，活动链未包含 B，Bob 的钱包仍显示 0。','validation','vis16']]
+};
+function frames(network){
+ const n=network?'b':'a';
+ const list=[
+ ['template','前情 1　选入 B','P2 收到 P1 的链尖和交易池中的完整 B。','依据依赖与资源约束选入 B，统计 1,000 聪费用，准备见证承诺。','新模板保留父块和有序交易，交给 P3。'],
+ ['job','前情 2　生成 J','P3 收到 P2 的含 B 模板，已有矿池会话。','生成 coinbase 两段及 Merkle 分支，并为模板分配作业号 J。','登记 J 与原模板的对应关系，向 M1 下发作业。'],
+ ['notify','1　矿池下发作业','M1 收到 mining.notify 中的 J、前块哈希、coinbase 两段、分支、版本、nBits、时间及清理标志。','结合已有的 extraNonce1、extraNonce2 长度和适用的份额难度。','登记活动作业 J，把构造材料和份额目标交 M2。'],
+ ['prepare','2　准备候选头','M2 收到 J 及会话参数，已有本地 extraNonce2 分配状态。','选定 extraNonce2，拼 coinbase 的无见证序列化，算 txid，沿分支算普通 Merkle 根。','生成固定头字段，连同原作业参数与份额目标交 M3。'],
+ ['allocate','3　分配本地任务','M3 收到候选头数据，已有可用本地任务号。','给这一批头分配任务号 L。','登记 L 与 J、固定头字段、extraNonce2、时间、份额目标的对应关系，准备派发。'],
+ ['search','4　芯片找到候选 nonce','H1 收到 L、固定头数据和起始 nonce。','改变 nonce，反复计算 80 字节头的双 SHA-256。','芯片得到候选 nonce '+n+'，等待向 M3 回报。此刻矿池尚未收到提交。','暂停① · 芯片找到结果'],
+ ['report','5　芯片回报','M3 收到 (L, '+n+')，手中有本地任务表。','查 L 找回固定头字段，填回 nonce，复算并检查份额目标。','生成待提交参数，交给 M1。'],
+ ['client','6　准备提交','M1 收到 J、extraNonce2、时间和 nonce '+n+'，已有工人名与会话。','组成五参数 mining.submit 请求。','登记待答复请求，发往 P3。'],
+ ['submit','7　矿池接收','P3 收到五参数提交，保存着会话与 J 的原模板。','找回 extraNonce1、适用份额目标和作业参数。','将该提交与原模板配对，送 P4 复算；尚未记工。'],
+ ['verify','8　'+(network?'网络目标也命中':'普通份额记工'),'P4 收到上下文和提交值，已有份额记录与两个目标。','确认作业有效且结果未重复，重建 coinbase、根和头，复算同一个哈希。'+(network?'哈希 ≤ 网络目标，也达到份额目标。':'网络目标 < 哈希 ≤ 份额目标。'),network?'新记一份有效份额，恢复完整 coinbase 和有序交易，重建 K，准备交 P1。':'工人新增一份已接受份额。停在这里：哪份记录变了？Bob 为什么仍为 0 次确认？','暂停② · 矿池复算结果']
+ ];
+ if(network)list.push(
+ ['block','9　池方验块并传播','P1 收到完整 K，已有父链、UTXO 集和验证规则。','核验头、PoW、交易、见证承诺和奖励金额。本例 K 有效并延长活动链。','池方链尖成为 K，向 P2P 邻居传播。Bob 尚未采用。'],
+ ['peer','10a　Bob 收到 K','V1 经 P2P 收到完整 K。自己的活动链尖仍是 P，钱包已记录 B:0。','将 K 交给本地验证路径。先停在采用之前读出确认数。','接收方手中已有块体；本地活动链仍指向 P。'],
+ ['peer','10b　Bob 采用 K','同一条 P2P 消息的接收方 V1 手中已有完整 K 和自己的父链状态。','独立验证并选择包含 K 的有效链，本例 K 成为链尖。','V1 更新活动链并通知钱包，B:0 的 60,000 聪变为 1 次确认。','暂停③ · Bob 采用区块']
+ );return list;
+}
+const flows={share:frames(false),block:frames(true)};
+const positions={share:2,block:2};
+let mode='arch',moduleId='',cardIndex=null,trigger=null;
+function html(parent,tag,content){
+ const e=document.createElement(tag);e.textContent=content;parent.append(e);return e;
+}
+function pairs(parent,rows,css){
+ const dl=html(parent,'dl','');if(css)dl.className=css;
+ for(const [label,value] of rows){
+ const wrap=html(dl,'div','');html(wrap,'dt',label);html(wrap,'dd',value);
+ }
+}
+function render(){
+ const walk=mode!=='arch',i=positions[mode],frame=walk?flows[mode][i]:null;
+ for(const t of document.querySelectorAll('[data-mode]'))t.setAttribute('aria-pressed',String(t.dataset.mode===mode));
+ $('controls').hidden=!walk;$('map').classList.toggle('playing',walk);
+ for(const e of document.querySelectorAll('.edge')){
+ const active=walk&&frame[0]===e.dataset.edge;
+ const id=e.dataset.edge;
+ const nonce=mode==='block'?'b':'a';
+ const messages={submit:'mining.submit · worker, J, extraNonce2, nTime, nonce '+nonce,report:'L, '+nonce,client:'J、extraNonce2、nTime、nonce '+nonce,peer:'P2P · 完整 K',block:'提交完整候选块 K',notify:'mining.notify · J、coinbase 两段、分支与头字段'};
+ e.querySelector('text').textContent=active&&messages[id]?messages[id]:edges[id][3];
+ e.classList.toggle('active',active);e.firstChild.setAttribute('marker-end',active?'url(#current)':'url(#arrow)');
+ }
+ const focus=mode==='share'?['H1','P4']:mode==='block'?['H1','P4','V1']:[];
+ for(const node of document.querySelectorAll('.module'))node.classList.toggle('core',focus.includes(node.dataset.id));
+ $('credit').textContent=walk&&i>=9?'已接受 1 份':'已接受 0 份';
+ $('tip').textContent=mode==='block'&&i>=10?'K':'P';
+ $('bob').textContent=mode==='block'&&i===12?'1 次确认':'0 次确认';
+ $('story').replaceChildren();
+ if(!walk){
+ $('mark').textContent='Stratum V1 · 固定版本';$('title').textContent='从 P3 → M1 的作业读起';
+ html($('story'),'p','矿池保留完整 B，经网络下发 J。控制板用 J 准备候选头，再把本地任务 L 交给 ASIC。板内接口按教学逻辑字段表示。点选模块可查看它维护的数据。');return;
+ }
+ const steps=$('stage-list');
+ if(steps.dataset.mode!==mode){
+ steps.dataset.mode=mode;steps.replaceChildren();
+ flows[mode].forEach((f,j)=>{
+ const btn=html(steps,'button',f[1]);btn.onclick=()=>{positions[mode]=j;render()};
+ });
+ }
+ [...steps.children].forEach((btn,j)=>btn.setAttribute('aria-current',j===i?'step':'false'));
+ $('prev').disabled=i===0;$('next').disabled=i===flows[mode].length-1;
+ $('mark').textContent=frame[5]||('当前消息 · '+edges[frame[0]][3]);
+ $('title').textContent=frame[1];
+ pairs($('story'),[['收到与已有',frame[2]],['处理',frame[3]],['状态与去向',frame[4]]],'steps');
+ if(mode==='share'&&i===9){
+ const btn=html($('story'),'button','同一作业 J · 从芯片回报 nonce b 继续 →');
+ btn.onclick=()=>{positions.block=6;mode='block';render()};
+ }
+}
+for(const btn of document.querySelectorAll('[data-mode]'))btn.onclick=()=>{mode=btn.dataset.mode;render()};
+$('prev').onclick=()=>{positions[mode]--;render()};
+$('next').onclick=()=>{positions[mode]++;render()};
+
+function openModule(id){
+ moduleId=id;trigger=document.querySelector('[data-id="'+id+'"]');showInfo(null);$('info').showModal();
+}
+function showInfo(index){
+ cardIndex=index;
+ const mod=modules[moduleId],body=$('body'),inCard=index!==null;
+ body.replaceChildren();$('crumb').textContent=moduleId+' · '+mod[2];
+ $('back').textContent=inCard?'返回知识目录':(mode==='arch'?'返回架构图':'返回暂停步骤');
+ if(inCard){
+ const [title,input,method,output,place,fail,...refs]=cards[moduleId][index];
+ $('infoTitle').textContent=moduleId+'.'+(index+1)+'　'+title;
+ pairs(body,[['输入',input],['处理',method],['输出与使用方',output],['在 B / K 中的位置',place],['失败例',fail]]);
+ for(const ref of refs){const [name,url]=sources[ref];const link=html(body,'a',name+' ↗');link.href=url;link.target='_blank';link.rel='noopener'}
+ }else{
+ $('infoTitle').textContent=mod[2];pairs(body,[['内部组成',mod[4]],['维护的数据',mod[5]],['主要功能',mod[6]]]);
+ html(body,'h3','知识点目录');
+ cards[moduleId].forEach(([name],j)=>{const btn=html(body,'button',moduleId+'.'+(j+1)+'　'+name);btn.className='topic';btn.onclick=()=>{showInfo(j);$('back').focus()}});
+ }
+ $('info').scrollTop=0;
+}
+function stepBack(){
+ if(cardIndex===null){$('info').close();trigger.focus({preventScroll:true})}
+ else{const old=cardIndex;showInfo(null);document.querySelectorAll('.topic')[old].focus()}
+}
+$('back').onclick=stepBack;
+$('info').oncancel=e=>{e.preventDefault();stepBack()};
+render();
+
+function setLessonTheme(mode) {
+  const light = mode === 'light';
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  const button = document.getElementById('theme');
+  button.textContent = light ? '切换深色' : '切换浅色';
+  // Carry the setting even when file URLs have isolated storage.
+  for (const link of document.querySelectorAll('.course-links a, a[data-lesson]')) {
+    const url = new URL(link.href);
+    url.searchParams.set('theme', document.documentElement.dataset.theme);
+    link.setAttribute('href', url.pathname.split('/').pop() + url.search + url.hash);
+  }
+}
+let lessonTheme = new URLSearchParams(location.search).get('theme');
+if (!['light', 'dark'].includes(lessonTheme)) {
+  try { lessonTheme = localStorage.getItem('btc-course-theme') || localStorage.getItem('btc-full-node-theme') || localStorage.getItem('btc-wallet-theme'); } catch {}
+}
+setLessonTheme(lessonTheme);
+document.getElementById('theme').onclick = () => {
+  setLessonTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  const url = new URL(location.href);
+  url.searchParams.set('theme', document.documentElement.dataset.theme);
+  try { history.replaceState(null, '', url); } catch {}
+  try { localStorage.setItem('btc-course-theme', document.documentElement.dataset.theme); } catch {}
+};
+</script>
+<script src="知识卡片/术语引用.js"></script></body></html>

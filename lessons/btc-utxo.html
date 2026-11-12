@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UTXO · 跟踪一项旧输出</title>
+<style>
+:root{color-scheme:dark;background:#202328;color:#edf0f5;font:17px/1.7 system-ui,sans-serif}body{max-width:56rem;margin:auto;padding:1rem clamp(1rem,4vw,3rem) 3rem}h1{font-size:clamp(1.7rem,4vw,2.4rem);line-height:1.3}h2{font-size:1.25rem;margin:1.55rem 0 .4rem}p{margin:.5rem 0}a{color:#9dd9e7}fieldset,table{background:#30343b;border:1px solid #4b515c}fieldset{padding:.8rem;border-radius:6px}button{color:inherit;background:#25292e;border:1px solid #737b86;border-radius:4px;padding:.4rem .65rem;font:inherit;cursor:pointer;margin:.15rem}button[aria-pressed=true]{background:#b4ded6;color:#152823}table{width:100%;border-collapse:collapse;margin:.65rem 0}th,td{padding:.45rem;border:1px solid #4b515c;text-align:left}dt{font-weight:650;color:#aadacf}dd{margin:0 0 .5rem}code{overflow-wrap:anywhere}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#30343b;border:1px solid #4b515c;padding:1rem;border-radius:5px} td{overflow-wrap:anywhere}
+</style></head><body><main>
+<nav><a href="btc-full-node.html">全节点课件</a> · <a href="btc-wallet.html">钱包课件</a></nav>
+<h1>UTXO 记账模型</h1>
+<h2 id="一项-utxo-在-bitcoin-core-里是什么结构">一项 UTXO 在 Bitcoin Core 里是什么结构？</h2>
+<p>**UTXO（Unspent Transaction Output，未花费交易输出）**是一笔已有交易创建、截至所观察的链尖仍未被消费的输出。它有一个可被下一笔交易引用的位置、一笔整数金额，以及一段规定花费条件的脚本。Bitcoin Core v29.0 用下面两个对象表达这项记录：用 <strong>COutPoint</strong> 查哪一项，用 <strong>Coin</strong> 保存查到的内容。</p>
+<table>
+<thead>
+<tr>
+<th>所属对象</th>
+<th>Core 字段与类型</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>查找键 COutPoint</td>
+<td><code>hash: Txid</code></td>
+<td>创建该输出的交易标识（transaction identifier，txid），32 字节</td>
+</tr>
+<tr>
+<td>查找键 COutPoint</td>
+<td><code>n: uint32_t</code></td>
+<td>该交易输出数组中从 0 开始的下标</td>
+</tr>
+<tr>
+<td>记录 Coin → out: CTxOut</td>
+<td><code>out.nValue: CAmount</code></td>
+<td>有符号 64 位整数，以聪为单位；有效输出的金额须在共识允许范围内</td>
+</tr>
+<tr>
+<td>记录 Coin → out: CTxOut</td>
+<td><code>out.scriptPubKey: CScript</code></td>
+<td>可变长脚本字节，规定花费这项钱要满足的条件</td>
+</tr>
+<tr>
+<td>记录 Coin</td>
+<td><code>fCoinBase: unsigned int（1 位）</code></td>
+<td>创建它的交易是否为 coinbase，花费时用于检查成熟期</td>
+</tr>
+<tr>
+<td>记录 Coin</td>
+<td><code>nHeight: uint32_t（31 位）</code></td>
+<td>创建输出的区块高度，也用于成熟期和相对时间锁检查</td>
+</tr>
+</tbody>
+</table>
+<p>前两个字段来自引用位置。中间两个字段来自原交易输出。最后两个字段由节点处理所在区块时补上。后来花费它的交易只需在输入的 <code>prevout</code> 写出同一对键，节点即可取得金额和脚本进行验证。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/primitives/transaction.h">交易类型定义</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/coins.h">Coin 定义</a></p>
+<h3 id="读一条真实记录主网高度-170-的第-0-号付款输出">读一条真实记录：主网高度 170 的第 0 号付款输出</h3>
+<p>下面按 Core 的字段重建<strong>刚接入高度 170 时</strong>的历史状态。它来自一笔 10 BTC 的主网付款，与 Alice 的 60,000 聪书款是两个样例。交易标识按区块浏览器的显示顺序书写。</p>
+<pre class="text"><code>COutPoint
+  hash = f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16
+  n    = 0
+Coin
+  out.nValue       = 1000000000
+  out.scriptPubKey = 4104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac
+  fCoinBase        = 0
+  nHeight          = 170</code></pre>
+<p>在原交易中，这个输出依次写作金额 <code>00 ca 9a 3b 00 00 00 00</code>、脚本长度 <code>43</code>、上面的 67 字节脚本。金额按小端读为十亿聪。脚本开头的 <code>41</code> 指示压入 65 字节公钥，末尾 <code>ac</code> 是 OP_CHECKSIG（检查签名）。这种条件称为 <strong>P2PK（Pay to Public Key，支付到公钥）</strong>。换到书款案例，B:0 的金额是 60,000 聪，脚本是 22 字节的 P2WPKH（Pay to Witness Public Key Hash），Core 用同样的字段保存它。<a href="https://learnmeabitcoin.com/explorer/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">高度 170 付款的原始交易</a></p>
+<p>沿输入追到旧输出，再沿已花输出查看下一笔交易。<a href="https://blockzerobtc.com/tools/utxo-visualizer" target="_blank" rel="noopener">Block Zero · UTXO Visualizer ↗</a> · <a href="https://mempool.space/zh/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16" target="_blank" rel="noopener">mempool.space · 高度 170 的付款 ↗</a></p>
+<h3 id="节点怎样保存和更新这条记录">节点怎样保存和更新这条记录？</h3>
+<p>内存里可以按上述对象理解。写入 chainstate 的 LevelDB 时，Core 将键编码为前缀 <code>0x43</code>、序列化交易标识、按 Core VARINT 编码的输出编号。值先编码 <code>2 × nHeight + fCoinBase</code>（此例为 340），再写压缩的金额与脚本。原交易的输出长度使用 CompactSize；数据库键值采用自己的编码。它们表达相同的输出，字节布局不同。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/txdb.cpp">CoinEntry 数据库键</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/compressor.h">输出压缩格式</a></p>
+<p>普通交易接块时，节点在父链状态中按每个输入的 prevout 查找 Coin，核对金额、脚本及花费资格，在工作视图中消费旧 Coin，再按新交易的 txid 和各输出下标加入可进入 UTXO 集的新 Coin。消费会让旧键从可用集合中消失；历史交易本身仍然存在。</p>
+<h2>钱包怎么算出余额？</h2><p>Bob 预先从描述符生成自己关注的脚本。扫描输出时，把完整 scriptPubKey 与索引匹配，认出 B:0，记下 outpoint。之后扫描输入，看是否有人引用这个键。把匹配、尚未花费且符合所选确认类别的金额相加，即得该类余额。观察钱包也能识别输出；真正花费还要满足脚本。若后来花光 B:0 且没有找零，B 仍有确认，这一项对余额的贡献已是 0。</p>
+<h2>同一个 U 为什么只能花一次？</h2><p>若 B 已入池，另一笔 C 引用 U 会命中本机占用索引，进入冲突与替换检查。若 B 已在父链花掉 U，验证 C 时便找不到可花的 U。若一个候选块先放 B 再放 C，第一个输入已经移除 U，执行到 C 时整块失败。两个竞争块分别从同一父块出发，则各自可以花 U，节点最后只采用一条有效分支。</p>
+<h2>用一笔书款观察状态变化</h2><p>Alice 有一项价值 100,000 聪的旧输出 U。交易 B 引用整个 U，给 Bob 60,000 聪，给 Alice 找零 39,000 聪。竞争交易 C 引用同一个 U，输出都给 Alice。以下只观察这笔书款，假定新输出尚未再花费。</p>
+<fieldset><legend>选择 Bob 节点观察到的事件</legend><div id="choices"></div></fieldset>
+<div aria-live="polite"><table><thead><tr><th>本地记录</th><th>当前能查到什么</th></tr></thead><tbody>
+<tr><th>活动链 UTXO</th><td id="coins"></td></tr><tr><th>内存池输入占用</th><td id="pool"></td></tr><tr><th>Bob 的书款</th><td id="funds"></td></tr></tbody></table><p id="why"></p></div>
+<p>只存在于侧支的 K 不会改变 Bob 的活动链 UTXO。在活动链仍停留于 P 时，节点仍能查到 U。</p>
+<p><a href="知识卡片/阅读.html#card-example-06">逐字段读交易</a> · <a href="知识卡片/阅读.html#card-11">冲突与替换</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/coins.h">Core v29.0 的 Coin 结构</a></p>
+</main><script>
+const events=[
+ ['父块 P','U · 100,000 聪','无','已确认 0 聪','Bob 还未看到书款 B。'],
+ ['B 入池','U · 100,000 聪','U → B','待确认 60,000 聪；已确认 0 聪','接纳 B 只登记本地占用。另一个节点可能尚未收到 B。'],
+ ['接入 K','B:0 · 60,000 聪；B:1 · 39,000 聪','已清出 B','已确认 60,000 聪','B 在活动链中消费 U，钱包按 B:0 的收款脚本识别书款。'],
+ ['断开 K','恢复 U · 100,000 聪','等待按新链复查 B','撤下原确认；已确认 0 聪','暂停在重组中间。仅从断块事件还不能判断 B 最终是否回池。'],
+ ['接入含 C 的新分支','U 已花；留下 C 的未花输出','B 无法回池','B 冲突；已确认 0 聪','C 在新分支消费同一个 U，B:0 已从活动链状态消失。']
+];
+const choices=document.getElementById('choices');
+function select(i){
+ for(const [j,button] of [...choices.children].entries())button.setAttribute('aria-pressed',String(j===i));
+ ['coins','pool','funds','why'].forEach((id,j)=>document.getElementById(id).textContent=events[i][j+1]);
+}
+events.forEach(([name],i)=>{const button=document.createElement('button');button.textContent=name;button.onclick=()=>select(i);choices.append(button)});select(0);
+</script></body></html>

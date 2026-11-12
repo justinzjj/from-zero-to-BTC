@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一笔交易穿过全节点 · Bitcoin 家教课</title>
+<style>
+:root{color-scheme:dark;--bg:#202328;--panel:#30343b;--line:#4b515c;--text:#edf0f5;--muted:#b2bbc8;--wire:#a9bcd3;--p2p:#efb775;--state:#88cec0;--event:#c4abe7}
+:root{
+ --link:#c4d3df;--dot:#424852;--canvas:#262a30;--boundary:#596471;
+ --outline:#636d7a;--focus:#fff;--secondary:#c5ced9;--detail:#292e34;
+ --button:#383f48;--button-line:#657180;--peer:#43392f;--peer-line:#ad8558
+}
+:root[data-theme="light"]{
+ color-scheme:light;--bg:#f2f4f6;--panel:#fff;--line:#bbc5cf;--text:#192837;
+ --muted:#465866;--wire:#405e7c;--p2p:#894c11;--state:#146951;--event:#6a4588;
+ --link:#36556f;--dot:#cbd3db;--canvas:#f9fafb;--boundary:#8795a3;
+ --outline:#8c99a5;--focus:#183e61;--secondary:#475866;--detail:#e7edf1;
+ --button:#fff;--button-line:#8c99a5;--peer:#fff0dc;--peer-line:#a7753c
+}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 "PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:1560px;margin:auto;padding:20px clamp(14px,3vw,52px) 40px}
+nav,header,.legend,.detail-head{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+nav{justify-content:space-between;font-size:14px}a{color:var(--link);text-underline-offset:4px}
+nav a:nth-child(2){margin-left:auto}header{justify-content:space-between;margin:16px 0}h1,h2,p{margin:0}h1{font-size:clamp(27px,3vw,42px);letter-spacing:-.045em}h2{font-size:21px}
+.legend{gap:14px;color:var(--muted);font-size:14px}.legend span:before{content:"";display:inline-block;width:22px;margin-right:6px;vertical-align:middle;border-top:2px solid var(--wire)}
+.legend .net:before{border-top:4px double var(--p2p)}.legend .state:before{border-color:var(--state);border-top-style:dashed}.legend .event:before{border-color:var(--event);border-top-style:dotted}
+.canvas{overflow:auto;border:1px solid var(--line);border-radius:12px;background:radial-gradient(var(--dot) 1px,transparent 1px) 0 0/22px 22px}
+svg{display:block;width:100%;min-width:1030px;height:auto}svg text{fill:var(--text)}.boundary{fill:var(--canvas);stroke:var(--boundary);stroke-dasharray:7 5}
+.edge path{fill:none;stroke-width:1.8}.edge text,.caption{font-size:14px}.edge text{paint-order:stroke;stroke:var(--canvas);stroke-width:5;stroke-linejoin:round}
+.module{cursor:pointer}.module rect{fill:var(--panel);stroke:var(--outline)}.module:hover rect,.module:focus rect,.module.selected rect{stroke:var(--focus);stroke-width:2}.module:focus{outline:none}.module .name{font-size:19px;font-weight:650}.module .sub{font-size:14px;fill:var(--secondary)}.num{font:15px ui-monospace,monospace}.muted{opacity:.20}
+.detail{margin-top:15px;padding:15px 20px;border-left:3px solid var(--wire);background:var(--detail)}.detail-head{justify-content:space-between}.detail p{margin:6px 0}.detail ul{margin:8px 0;padding-left:22px}
+button{font:inherit;background:var(--button);color:var(--text);border:1px solid var(--button-line);border-radius:5px;padding:4px 12px;cursor:pointer}
+.views,.controls,.states{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.views{margin:0 0 12px}.views button[aria-pressed=true]{background:var(--text);color:var(--bg)}
+.walk{border:1px solid var(--line);border-radius:8px;background:var(--detail);padding:12px 16px;margin-bottom:10px}
+.controls{justify-content:space-between}#stage-list{display:flex;flex-wrap:wrap;gap:6px}
+#stage-list button{text-align:left}#stage-list [aria-current="step"]{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:650}
+.walk p{margin:7px 0}.states{gap:8px 24px;color:var(--secondary);font-size:14px}.states b{color:var(--text)}
+button:disabled{opacity:.42;cursor:default}.external rect{fill:var(--peer);stroke:var(--peer-line)}.external text{font-size:17px}.external .caption{font-size:14px}
+[data-mode=pool] #modules .module:last-child,[data-mode=pool] #edges .edge:last-child{display:none}
+.walking .edge.muted{opacity:.30}.edge.off-path{display:none}
+.edge.current-edge path{stroke-width:3.2}.edge.current-edge text{font-weight:700}.walk[hidden],[hidden]{display:none}
+#fork{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:8px 0}
+#fork[hidden]{display:none}#fork svg{width:min(100%,430px);min-width:0}.block rect{rx:6;fill:var(--panel);stroke:var(--outline)}
+.block text{text-anchor:middle;font-size:16px}.block.current rect{fill:var(--state);stroke:var(--text);stroke-width:2}.block.current text{fill:var(--bg);font-weight:700}
+[data-mode=reorg] .states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:6px}
+[data-mode=reorg] .states>span{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:8px}
+[data-mode=reorg] .states b{display:block;margin-top:4px;overflow-wrap:anywhere}
+#topics{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}#topics:empty{display:none}
+#topics strong{font-size:15px;margin-right:4px}#card{background:var(--panel);color:var(--text);border:1px solid var(--outline);border-top:4px solid var(--state);border-radius:9px;width:min(580px,92vw);max-height:86vh;padding:20px}
+#card::backdrop{background:#11182099}#card header{margin:0 0 10px}#cardModule,#card dt{color:var(--muted);font-size:14px}#card dt{margin-top:12px;font-weight:650}#card dd{margin:3px 0}#card a{overflow-wrap:anywhere}.external{cursor:pointer}.external:focus rect{stroke:var(--focus);stroke-width:2}
+#module-overview{margin:12px 0 16px}
+#module-overview dl{display:grid;grid-template-columns:max-content 1fr;gap:10px 20px;margin:0;padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+#module-overview dt{font-weight:650;color:var(--state)}#module-overview dd{margin:0}#module-overview code{overflow-wrap:anywhere}
+@media(max-width:600px){#module-overview dl{grid-template-columns:1fr;gap:4px}#module-overview dt:not(:first-child){margin-top:8px}}
+/* Gold identifies the teaching focus throughout a view. */
+:root{--core-fill:#4e4129;--core-line:#e7be6d}
+:root[data-theme=light]{--core-fill:#ffe7ac;--core-line:#94621b}
+.core rect{fill:var(--core-fill);stroke:var(--core-line);stroke-width:2.6}
+.core.muted{opacity:.72}
+.legend .core-key:before{width:15px;height:10px;background:var(--core-fill);border:2px solid var(--core-line);border-radius:2px}
+
+main{max-width:1560px;margin:auto;padding:20px clamp(14px,3vw,52px) 40px}
+main h1{font-size:clamp(27px,3vw,42px);letter-spacing:-.045em}
+.course-nav{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;margin:0 0 14px;padding:0 0 9px;border-bottom:1px solid var(--line);font-size:15px}
+.course-links{display:flex;flex-wrap:wrap;gap:4px}
+.course-nav .course-links a{display:block;margin:0;padding:5px 10px;border-radius:5px;text-decoration:none;color:var(--secondary);font-weight:600}
+.course-nav .course-links a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:inset 0 -2px #c39850}
+.course-nav a:hover{background:var(--panel)}
+.course-nav #theme{margin:0;padding:5px 10px;background:var(--button);border:1px solid var(--button-line);border-radius:6px;color:var(--text);font:inherit;cursor:pointer}
+.course-nav :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(max-width:650px){main{padding:12px}.course-nav{gap:6px}.course-nav .course-links a{padding:5px 7px}}
+.legend .rpc{display:none}[data-mode=solo] .legend .rpc{display:inline}
+.legend .rpc:before{border-top:2px dashed var(--wire)}
+.solo-host{display:none}[data-mode=solo] .solo-host{display:block}
+[data-mode=solo] .states{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));align-items:stretch}
+[data-mode=solo] .states>span{padding:6px 10px;border-left:2px solid var(--line)}[data-mode=solo] .states b{display:block}
+a.btc-term{color:inherit;text-decoration:underline dotted;text-decoration-color:var(--focus,currentColor);text-underline-offset:.19em}
+a.btc-term:hover,a.btc-term:focus-visible{text-decoration-style:solid;outline-offset:3px}
+#step-explanation h3{font-size:1.05rem;margin:.65rem 0 .2rem}#step-explanation ul{padding-left:1.35rem;margin:.25rem 0 .7rem}#step-explanation li{margin:.3rem 0}
+</style>
+</head><body><main>
+<nav class="course-nav" aria-label="Bitcoin 课件"><div class="course-links"><a href="btc-deployment.html">实际部署</a><a href="btc-wallet.html">钱包</a><a href="btc-full-node.html" aria-current="page">全节点</a><a href="btc-miner.html">矿机</a></div><button type="button" id="theme">切换浅色</button></nav>
+<header><h1>一笔交易穿过全节点</h1><div class="legend"><span class="core-key">场景核心模块</span><span class="net">跨机器 P2P</span><span>进程内调用</span><span class="rpc">本机 RPC</span><span class="state">状态读写</span><span class="event">本地事件</span></div></header>
+<div class="views" aria-label="教学视图"><button data-view="arch" aria-pressed="true">组件架构</button><button data-view="bob" aria-pressed="false">Bob 如何确认收款</button><button data-view="solo" aria-pressed="false">Bob 用 CPU 独立挖矿</button><button data-view="pool" aria-pressed="false">矿池如何把 B 打进块</button><button data-view="reorg" aria-pressed="false">验块与重组</button></div>
+<section id="walk" class="walk" hidden>
+<div class="controls"><div id="stage-list" role="group" aria-label="选择流程步骤"></div><div><button id="previous">上一步</button> <button id="next">下一步</button></div></div>
+<div id="fork" hidden>
+<svg viewBox="0 0 430 92" role="img" aria-labelledby="forkTitle"><title id="forkTitle">共同父块 P 的两个分支</title>
+<g fill="none" stroke="var(--outline)" stroke-width="2"><path d="M86 46H107L133 22H154"/><path d="M107 46L133 70H154"/><path d="M275 70H331"/></g>
+<g class="block" data-block="P"><rect x="2" y="29" width="84" height="34"/><text x="44" y="51">父块 P</text></g>
+<g class="block" data-block="K"><rect x="154" y="5" width="121" height="34"/><text x="214" y="28">K · 含 B</text></g>
+<g class="block" data-block="L1"><rect x="154" y="53" width="121" height="34"/><text x="214" y="76">L1 · 含 C</text></g>
+<g class="block" data-block="L2"><rect x="331" y="53" width="70" height="34"/><text x="366" y="76">L2</text></g>
+</svg><strong id="tip" aria-live="polite"></strong></div>
+<div aria-live="polite"><p id="story"></p><div id="step-explanation"></div><div class="states"><span>④ 本地池　<b id="poolState"></b></span><span id="candidateState" hidden>候选块 / PoW　<b id="candidate"></b></span><span>⑧ 活动链 UTXO　<b id="coins"></b></span><span><span id="observer"></span>　<b id="result"></b></span></div></div>
+<button id="handoff" hidden>跟随 K 到 Bob 的节点 →</button><button id="skip" hidden>假设 Bob 首次在块里见到 B →</button></section>
+<div class="canvas" tabindex="0" aria-label="全节点组件图，窄屏可横向滚动">
+<svg id="map" viewBox="0 0 1220 627" aria-labelledby="map-title"><title id="map-title">Bitcoin Core v29.0 全节点组件架构。点选模块可聚焦连接。</title>
+<defs id="markers"></defs>
+<g class="solo-host"><rect x="3" y="66" width="1214" height="705" rx="12" fill="none" stroke="var(--outline)"/><text x="39" y="647" class="caption">Bob 的电脑 · 本机独立挖矿程序</text></g>
+<rect class="boundary" x="14" y="81" width="1192" height="533" rx="12"/>
+<text id="owner" x="1172" y="106" text-anchor="end" class="caption">Bob 的电脑　/　Bitcoin Core v29.0 同一进程</text>
+<rect x="40" y="15" width="211" height="39" rx="5" fill="var(--peer)" stroke="var(--peer-line)"/><text x="146" y="41" text-anchor="middle">外部 · P2P 邻居</text>
+<text x="277" y="39" class="caption">Alice 的独立钱包先把签好的 B 提交给她的接入节点。矿池产生的块也可经邻居传来。</text>
+<g id="mining"></g><g id="edges"></g><g id="modules"></g>
+</svg></div>
+<section class="detail" aria-live="polite"><div class="detail-head"><h2 id="heading">沿着旧输出 U 读图</h2><button id="reset" hidden>返回全图</button></div>
+<p id="description">B 花费 U 的 100,000 聪，付给 Bob 60,000 聪，找零 39,000 聪，手续费 1,000 聪。点选模块可查看知识目录和它收发的数据。</p><p><a href="btc-utxo.html" target="_blank" rel="noopener">打开 UTXO 专题 · 跟踪 U 的占用、花费与恢复 ↗</a></p><section id="module-overview" aria-label="模块内部说明" hidden><dl>
+<dt>内部组成</dt><dd id="composition"></dd>
+<dt>核心维护什么</dt><dd id="maintained"></dd>
+<dt>主要功能</dt><dd id="function"></dd>
+</dl></section><div id="topics"></div><ul id="links"></ul></section>
+<dialog id="card" aria-labelledby="cardTitle"><header><span id="cardModule"></span><form method="dialog"><button>返回知识目录</button></form></header><h2 id="cardTitle"></h2><dl id="cardBody"></dl><a id="cardSource" target="_blank" rel="noopener"></a> <a id="cardResource" target="_blank" rel="noopener"></a></dialog>
+<template id="explain-delivery"><h3>这笔交易会去哪里？</h3><ul><li>已经知道 B 的通告可直接忽略，无需再下载。收到无法解码的载荷，消息解析失败；能解码但结构或签名无效的交易会被拒绝。</li><li>通过基本检查但缺前序输入的 P2P 交易，在满足暂存条件时可进有限的孤儿交易池，节点尝试索取父交易，取得后重试。孤儿池可淘汰条目；仅凭查不到 U，无法断定 U 是已花还是父交易尚未到达。</li><li>输入齐全后才可能接纳。普通独立交易须通过有效性和本地策略检查。若首次在区块里看到 B，直接按块规则验证；coinbase 只能作为区块首笔交易。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/node/txdownloadman_impl.cpp" target="_blank" rel="noopener">Core v29.0 · 缺输入交易的处理 ↗</a></p></template>
+<template id="explain-checks"><h3>拿着 B 逐项核对</h3><ul><li>① 格式与重量：能否按协议解析？输入和输出是否非空？输入有无重复 outpoint？单笔基础大小能否装入共识允许的区块？普通标准交易另有 400,000 WU 重量上限。</li><li>② 输入与金额：从活动链 UTXO 或可用的池内父交易找每个旧输出，读取金额和脚本。检查金额非负、各项和总额在范围内，输入总额至少覆盖输出总额。本例 100,000 − 60,000 − 39,000 = 1,000 聪，差额就是手续费。</li><li>③ 时间与资格：检查绝对和相对时间锁；若输入来自 coinbase，还需检查高度差是否至少 100。</li><li>④ 脚本与签名：逐个输入按前序输出的条件执行。本例核对原生 P2WPKH 的空 scriptSig、两项见证、公钥哈希，并按 BIP143 重算摘要，用公钥验 ECDSA 签名。签名正确只证明授权。</li><li>⑤ 双花：链上已经花掉的 U 在当前 UTXO 中不可用。另查本地池是否有交易引用同一个 outpoint；即使两笔签名都对，也必须解决冲突。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/consensus/tx_verify.cpp" target="_blank" rel="noopener">Core v29.0 · 前序输出与金额检查 ↗</a> · <a href="btc-utxo.html" target="_blank" rel="noopener">用 U 对照节点状态 ↗</a></p></template>
+<template id="explain-policy"><h3>本地策略怎样得出接纳或拒绝？</h3><ul><li>先查本机的 outpoint → 花费交易索引。C 是假设的另一笔交易：只有 C 的某个输入也引用 U，才与 B 冲突。同一地址的两个不同输出可以分别花费。若 C 已在池中，按替换规则决定是否移除 C 及受影响的后代；若 C 已在活动链花掉 U，B 缺少可用输入。</li><li>普通单笔交易要满足节点接受的标准脚本形式、标准重量和粉尘策略。粉尘按输出类型与估计花费成本判断；v29.0 另有受限的临时粉尘规则。标准策略失败的交易仍可能被矿工收入符合共识的区块。</li><li>Core v29.0 默认最低中继费率为 1 sat/vB。用 bitcoin-cli getmempoolinfo 查本机 minrelaytxfee 和 mempoolminfee，单位 BTC/kvB；0.00001000 BTC/kvB = 1 sat/vB。池受容量压力时有效门槛可上升。</li><li>假设 B 的实际虚拟大小为 141 vB，1,000 ÷ 141 ≈ 7.09 sat/vB。若普通单笔接纳门槛从 1 升到 8 sat/vB，需要 1,128 聪，B 差 128 聪。提高费率通常提高竞争力；等待几个块仍取决于矿工模板、竞争交易和新区块到达时间。</li><li>全部通过才在本地池写入 B 和 U → B。此时活动链 UTXO 里仍有 U；其他节点也可以有不同的内存池。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/policy/policy.h" target="_blank" rel="noopener">Core v29.0 · 标准性与费率常量 ↗</a> · <a href="https://bitcoincore.org/en/doc/29.0.0/rpc/blockchain/getmempoolinfo/" target="_blank" rel="noopener">读本机费率门槛 ↗</a> · <a href="btc-utxo.html" target="_blank" rel="noopener">用 U 对照节点状态 ↗</a></p></template>
+<template id="explain-template"><h3>本地池怎样填进候选块？</h3><ul><li>Core v29.0 比较候选交易和仍需一同选入的未确认祖先，以包的费用和虚拟大小衡量收益。父先子后。假设父付 200 聪占 200 vB，子付 1,800 聪占 200 vB，合在一起是 5 sat/vB；不能只取看起来有 9 sat/vB 的子交易。</li><li>检查包是否达到模板最低费率，是否满足最终性，以及剩余重量和签名操作预算。共识上限为整块 4,000,000 WU、80,000 sigops cost；模板还为 coinbase 等保留空间。池接纳已处理同一 outpoint 的冲突；最终整块验证仍逐笔检查。</li><li>选中一包后，更新后代尚需带入的祖先、费用和大小。某包放不下时可继续尝试其他合适候选；构造模板只读取池，落选者通常仍在池中等下一轮。交易也可能因替换、过期、容量淘汰或链上冲突而离池。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/node/miner.cpp" target="_blank" rel="noopener">Core v29.0 · 模板挑选与更新 ↗</a></p></template>
+<template id="explain-proof"><h3>Bob 为什么采用这一支？</h3><ul><li>节点从父链按难度规则推算本位置应填的 nBits，解出目标 T，再对 80 字节区块头做双 SHA-256，将结果按整数与 T 比较。哈希 ≤ T 才达到要求。命中头以后还要验证整块。</li><li>每个有效块贡献 floor(2²⁵⁶ ÷ (T + 1)) 的工作量。节点沿父指针逐块累加，在已知可验证的有效分支中选择累计工作量最大的一支。同目标下，哈希再小也不会多记工作量。</li><li>同父两块 K 和 L1 同时有效且等工作量时，节点可暂时各用一支。若 L1 的有效后继 L2 使累计工作量领先，Bob 才切换。块数相同也可能因难度不同而有不同工作量。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/chain.cpp" target="_blank" rel="noopener">Core v29.0 · 单块工作量 ↗</a></p></template>
+<template id="explain-header"><h3>收到别人挖出的块</h3><ul><li>邻居可通告区块头或紧凑块；节点取得缺少的交易，重建完整块。核对父块、预期 nBits、PoW、时间戳等条件；父链数据不足时先补齐。已记录头或存有块体，并不代表已经采用。</li><li>核对头内 Merkle 根与有序交易是否一致，检查重量、coinbase 的位置和见证承诺等。即使本机从未见过 B，也能从 K 取得它。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/pow.cpp" target="_blank" rel="noopener">Core v29.0 · 区块头目标检查 ↗</a></p></template>
+<template id="explain-block"><h3>按父块状态验每一笔交易</h3><ul><li>从父块 P 的 UTXO 视图开始，按交易顺序核对格式、输入可用性、金额、时间条件和脚本。适用时可复用已验证的脚本缓存结果。矿工声称验过，不能代替 Bob 自己的验证规则。</li><li>先执行 B 会花掉 U，添加 B:0 与 B:1。若 K 后面还有 C 引用 U，此时已经查不到 U，整块失败。最后核对 sigops 成本及 coinbase 总额不超过本高度补贴加全块手续费；入池费率和标准性不参与这项共识判断。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp" target="_blank" rel="noopener">Core v29.0 · 区块验证 ↗</a></p></template>
+<template id="explain-commit"><h3>什么时候真正改变本机账本？</h3><ul><li>只有有效块被接到活动链，才推进链尖和已确认 UTXO 状态。节点维护块索引、块体位置和撤销记录，清理池内已确认或冲突的交易，并通知钱包。有效侧支可保留，等待累计工作量比较。</li><li>若切换到另一条更重的有效分支，先找到共同祖先，逆序断开旧块，撤掉其新输出并恢复旧 Coin；再正序连接新块。旧块中的普通交易按新状态复查，只有仍满足条件者才可能回池。</li></ul><p><a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp" target="_blank" rel="noopener">Core v29.0 · 活动链连接与回滚 ↗</a> · <a href="btc-utxo.html" target="_blank" rel="noopener">用 U 对照节点状态 ↗</a></p></template>
+<script>
+const modules=[
+[1,40,127,'P2P 连接管理','维护邻居连接，收发消息','CConnman 管理连接和传输。入站消息保留对端信息，出站消息沿指定连接发送。'],
+[2,340,127,'P2P 消息处理','处理通告、索取与消息分派','PeerManagerImpl 处理 inv 和 getdata，将交易交给 ProcessTransaction，将头和完整块分别交给 ProcessNewBlockHeaders 和 ProcessNewBlock。'],
+[3,340,278,'单笔交易入池检查','判断本地是否接纳 B','MemPoolAccept 读取输入，核对手续费、费率、脚本和池内冲突。满足本地接纳条件后，将变更应用到内存池。'],
+[4,40,278,'本地内存池','保存 B，登记谁占用 U','CTxMemPool 保存本节点已接纳、尚待确认的交易。以 B 为例，可以从交易标识找到 B，也可以从它花费的 U 找到 B。'],
+[5,640,278,'共用交易与脚本检查','核对结构、输入金额和见证','两条路径复用 CheckTransaction、CheckTxInputs 和 CheckInputScripts 等检查。调用方提供输入视图及适用的脚本标志；单笔入池还要满足本地策略。'],
+[6,940,127,'分支与活动链管理','选择候选，组织接块和断块','ChainstateManager 与 Chainstate 利用区块索引比较累计工作量，定位共同祖先，安排断旧块、接新块。候选块还须通过验证才能接上活动链。'],
+[7,940,278,'区块连接与断开','执行块内交易，逆序撤销','ConnectBlock 依据父块状态逐笔检查并更新临时视图。DisconnectBlock 结合旧块体和撤销记录逆序移除新增输出、恢复旧 Coin。'],
+[8,640,426,'UTXO 视图','按旧输出引用查找 Coin','每枚 Coin 包含金额、锁定脚本、高度及 coinbase 标记。本框合画临时视图、活动链缓存与持久化数据库；只有成功接上的块才改变活动链状态。'],
+[9,940,426,'区块索引与存储','保存分支关系、块与撤销记录','CBlockIndex 记父指针、高度、累计工作量、验证状态和文件位置。blk 文件保存完整块；rev 文件保存被花掉的旧 Coin。重组时由旧块确定要移除哪些输出，从撤销记录取回旧币。'],
+[10,340,530,'验证事件分发','向本地订阅者分发事件','ValidationSignals 分发入池、接块和断块事件。链通知适配层将事件交给订阅的钱包。'],
+[11,40,530,'Bob 的集成钱包','识别收款，更新确认与冲突','对应钱包课⑦节点接口和⑧相关交易跟踪。钱包匹配 B:0 的脚本，显示待确认的 60,000 聪；随后随活动链接块或断块回调更新自己的交易记录。']
+];
+
+const styles={net:['var(--p2p)',''],call:['var(--wire)',''],state:['var(--state)','7 3'],event:['var(--event)','2 5']};
+// 端点、连线类型、路径、标签位置、投影短标签、完整关系
+const edges=[
+[0,1,'net','M110 54V127',72,99,'tx / block','邻居发来 inv、带见证的交易 B、区块头或完整块'],
+[1,0,'net','M187 127V54',232,74,'getdata / inv','按需索取交易或块，也可向其他邻居通告交易'],
+[1,2,'call','M260 146H340',300,138,'消息载荷','连接管理将邻居标识和消息载荷交给消息处理'],
+[2,1,'call','M340 177H260',300,198,'待发消息','消息处理指定对端及待发送的索取或通告'],
+[2,3,'call','M448 191V278',508,236,'带见证的交易 B','将解析后的 B 交给单笔入池入口，返回接纳结果供后续中继判断'],
+[2,6,'call','M560 160H940',750,151,'区块头序列 / 收到的完整块','区块头与完整块分别送到头处理入口和整块处理入口'],
+[3,4,'state','M340 310H260',298,296,'读写占用','查 U 的池内花费者；接纳后登记 B 和 U → B'],
+[8,3,'state','M640 455H510V342',561,446,'读 U 的 Coin','按 B 的输入引用读取 U 的金额和锁定脚本'],
+[3,5,'call','M560 310H640',600,296,'B、旧币','以 B、输入视图及入池路径的脚本标志调用共用检查'],
+[6,7,'call','M1048 191V278',977,235,'待接 / 待断的块','安排连接完整候选块，或断开旧链尖块'],
+[7,5,'call','M940 310H860',900,296,'块内交易','以块内交易、当前输入视图和适用共识标志调用共用检查'],
+[7,8,'state','M975 342V378H750V426',854,370,'花掉 / 恢复 U','连接时花掉 U 并写入 B:0、B:1；断开时移除两项输出并恢复 U'],
+[7,9,'state','M1060 342V426',1106,391,'读写撤销','连接时写撤销数据，断开时读旧块体与撤销数据'],
+[6,9,'state','M1160 157H1180V459H1160',1113,416,'读写块与索引','登记头、块体、验证状态和位置；按父指针找共同祖先并取出切链所需的块'],
+[6,4,'state','M979 191V211H151V278',730,204,'按块清理已确认项和冲突项','活动链接块后，从池里清理块中交易及其冲突交易'],
+[3,10,'event','M408 342V530',359,404,'B 已入池','单笔接纳成功后发出 TransactionAddedToMempool'],
+[6,10,'event','M1112 191V249H605V559H560',735,242,'接块 / 断块通知','活动链接块、断块时发出 BlockConnected 或 BlockDisconnected，附块与链上位置'],
+[10,11,'event','M340 562H260',300,551,'钱包回调','同进程回调交付入池交易或接断的区块，钱包自行匹配相关交易']
+];
+const ns='http://www.w3.org/2000/svg';
+function element(parent,name,attrs,value){
+ const el=document.createElementNS(ns,name);
+ for(const [key,val] of Object.entries(attrs))el.setAttribute(key,val);
+ if(value!==undefined)el.textContent=value;
+ parent.append(el);return el;
+}
+for(const [kind,[color]] of Object.entries(styles)){
+ const marker=element(document.querySelector('#markers'),'marker',{id:kind,viewBox:'0 0 8 8',refX:7,refY:4,markerWidth:6,markerHeight:6,orient:'auto'});
+ element(marker,'path',{d:'M0 0L8 4L0 8Z',fill:color});
+}
+const edgeNodes=edges.map(([from,to,kind,d,x,y,label,detail])=>{
+ const group=element(document.querySelector('#edges'),'g',{class:'edge'});
+ const [color,dash]=styles[kind];
+ element(group,'title',{},detail);
+ const path=element(group,'path',{d,stroke:color,'stroke-dasharray':dash,'marker-end':'url(#'+kind+')'});
+ if(kind==='net')path.style.strokeWidth=3;
+ element(group,'text',{x,y,'text-anchor':'middle',style:'fill:'+color},label);
+ return group;
+});
+const moduleNodes=modules.map(([id,x,y,name,sub])=>{
+ const group=element(document.querySelector('#modules'),'g',{class:'module',role:'button',tabindex:0,'aria-label':id+' '+name,'aria-pressed':false});
+ element(group,'rect',{x,y,width:220,height:64,rx:7});
+ element(group,'text',{x:x+12,y:y+25,class:'num'},String(id).padStart(2,'0'));
+ element(group,'text',{x:x+41,y:y+26,class:'name'},name);
+ element(group,'text',{x:x+12,y:y+51,class:'sub'},sub);
+ group.addEventListener('click',()=>focusModule(id));
+ group.addEventListener('keydown',event=>{
+  if(['Enter',' '].includes(event.key)){event.preventDefault();focusModule(id);}
+ });
+ return group;
+});
+const heading=document.querySelector('#heading'),description=document.querySelector('#description'),reset=document.querySelector('#reset'),links=document.querySelector('#links');
+const initial=[heading.textContent,description.textContent];
+const catalog={
+ "1": [
+  {
+   "title": "CNode · 邻居连接记录",
+   "resource": ["BTCVisual · 网络传播实验", "https://btcvisual.com/experiments/network"],
+   "definition": "一个节点为某条对等连接维护的本地对象。",
+   "purpose": "连接编号将消息收发关联到具体邻居。",
+   "inputs": "连接编号、对端连接对象、待发送的消息。",
+   "method": "CConnman 管理多个连接。②选定对端，①将序列化消息加入该连接的发送队列，等待套接字可写。",
+   "result": "索取 B 时，getdata 沿选中的连接发给曾通告 B 的邻居。",
+   "failure": "发送前连接断开，本次索取不能靠这条连接完成。",
+   "source": "net.h"
+  },
+  {
+   "title": "传输层分帧 · 拼出完整消息",
+   "resource": ["BTCVisual · 网络传播实验", "https://btcvisual.com/experiments/network"],
+   "inputs": "传输层陆续收到的字节、当前接收进度。",
+   "method": "传输实现按协商好的格式划分消息边界。一次读取可能只带来一部分，也可能含多条消息。完整消息带类型和载荷进入处理队列。",
+   "result": "接收 B 时，②从完整 tx 消息取出交易载荷。",
+   "failure": "只收到前半段时不能把 B 交给③验签。",
+   "source": "net.cpp"
+  },
+  {
+   "title": "CNetMessage · 接收消息",
+   "resource": ["BTCVisual · 网络传播实验", "https://btcvisual.com/experiments/network"],
+   "definition": "传输层组装好的一条网络消息，包含类型和载荷。",
+   "purpose": "处理层可以按消息边界分派交易或区块。",
+   "inputs": "消息类型、已接收的消息载荷、接收时间等元数据。",
+   "method": "传输层完成一条消息的接收后，将它放入该连接的处理队列；②取出并按类型解析。",
+   "result": "B 的完整 tx 载荷可以在此交给②。",
+   "failure": "完整收齐也不保证交易有效；载荷若无法解码成交易，不能送③接纳。",
+   "source": "net.h"
+  }
+ ],
+ "2": [
+  {
+   "title": "TxRequestTracker · 交易索取调度",
+   "resource": ["BTCVisual · 网络传播实验", "https://btcvisual.com/experiments/network"],
+   "inputs": "交易标识、通告它的邻居、已有交易和在途请求。",
+   "method": "交易请求跟踪器记录哪些对端通告过同一标识。节点筛选仍缺失的交易，选定对端，发出 getdata 并跟踪响应。",
+   "result": "B 首次到达前，①按②的决定索取 B；重复通告可以合并处理。",
+   "failure": "邻居通告后未交付，光凭标识无法重建 B 的见证或输出。",
+   "source": "txrequest.h"
+  },
+  {
+   "title": "ProcessMessage · 消息分派",
+   "resource": ["BTCVisual · 网络传播实验", "https://btcvisual.com/experiments/network"],
+   "inputs": "P2P 消息类型及解码后的载荷。",
+   "method": "②按类型分派。单笔交易送入交易处理入口；头序列送交头处理；完整块送交区块处理。",
+   "result": "Bob 错过 B 的单笔中继时，仍能从 K 的完整块体取得 B，交给⑥⑦。",
+   "failure": "只有 headers 时，没有块内交易可供⑦逐笔执行。",
+   "source": "net_processing.cpp"
+  },
+  {
+   "title": "CInv · 通告项目",
+   "resource": ["BTCVisual · 网络传播实验", "https://btcvisual.com/experiments/network"],
+   "definition": "P2P 清单里的一项标识，由对象类型和哈希组成。",
+   "purpose": "邻居可以先通告已有哪些对象，再按需传送完整数据。",
+   "inputs": "库存类型和一个 256 位标识。类型决定这个标识指哪类对象。",
+   "method": "②读取类型与标识，再判断是否已知对象、是否需要向邻居索取。",
+   "result": "邻居通告 B 时，收到的是索引线索，交易输入和见证要从后续 tx 取得。",
+   "failure": "仅拿通告中的哈希，无法算出 B 的手续费。",
+   "source": "protocol.h"
+  }
+ ],
+ "3": [
+  {
+   "title": "AcceptSingleTransaction · 分阶段接纳",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "inputs": "B 的输入、虚拟大小、本地池状态、费率门槛及脚本检查标志。",
+   "method": "MemPoolAccept 分阶段做预检查、适用的替换检查和脚本检查。手续费除以虚拟大小才得到可与门槛比较的费率。",
+   "result": "100,000 − 60,000 − 39,000 = 1,000 聪。③决定 Bob 本机是否接纳 B，通过后才交④登记。",
+   "failure": "若本地最低费率高于 B 的费率，正确签名也不能让它通过本机入池策略。矿池收到含 B 的块时按区块规则验。",
+   "source": "validation.cpp"
+  },
+  {
+   "title": "ReplacementChecks · 替换条件检查",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "inputs": "B 的输入、④返回的直接冲突交易 C、可能连带移除的后代及其费用。",
+   "method": "③找出受影响的交易集合，评估替换的费率、总费用、额外中继费用等策略条件，再统一应用池内变更。",
+   "result": "若 B 通过，④移除被替换项并登记 B 对 U 的占用；两边节点可得出不同的池状态。",
+   "failure": "B 的费用不足以满足替换条件，C 留在池里，⑧中的 U 仍在。",
+   "source": "validation.cpp"
+  },
+  {
+   "title": "Workspace · 单笔接纳工作区",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "definition": "接纳一笔候选交易期间保存中间结果的临时工作区。",
+   "purpose": "各阶段可以复用前一阶段的检查结果，通过全部检查后再提交状态。",
+   "inputs": "待检查交易、验证状态、费用和冲突等中间结果。",
+   "method": "③为 B 建立本次检查的工作区；预检查和后续检查共享结果，最后决定应用变更还是返回失败。",
+   "result": "即使已算出 B 的费用，脚本检查完成前④也不能据此认定接纳成功。",
+   "failure": "若检查中途失败就登记 U → B，会让④留下一个无效占用。",
+   "source": "validation.cpp"
+  }
+ ],
+ "4": [
+  {
+   "title": "mapNextTx · 输入占用索引",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "definition": "从旧输出引用到本地池内花费交易的索引。",
+   "purpose": "新交易到达时，节点可以定位占用同一个输出的池内交易。",
+   "inputs": "查询键 U =（前序 txid，输出编号）。索引值指向池内花费 U 的交易。",
+   "method": "B 入池时，④为 B 的每个输入登记一项。本例写入 U → B。C 到来时，③用 C 的输入 U 查询，就能发现直接冲突 B。",
+   "result": "停在“B 入池”：④查 U 得到 B；⑧查同一个 U，仍得到 100,000 聪及旧锁定脚本。",
+   "failure": "用 B:0 作键是在问“谁花了 Bob 的新输出”。即使查不到，也不能据此判断 B 是否占用 U。",
+   "source": "txmempool.h#L407"
+  },
+  {
+   "title": "CTxMemPoolEntry · 交易条目",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "definition": "内存池中一笔交易及其费用、重量等元数据的条目。",
+   "purpose": "节点可以据此维护候选交易并比较打包成本。",
+   "inputs": "条目持有完整交易的引用，还记录基础手续费、重量、入池时间和入池时的链高度等本地数据。",
+   "method": "接纳 B 时，由输入总额减输出总额得到基础手续费，结合交易重量等信息计算策略使用的虚拟大小。读取条目即可取得费用、大小并比较费率。",
+   "result": "B 的条目记录基础手续费 1,000 聪。矿池组模板时可用条目的费用、大小和依赖信息评估是否选入 B。",
+   "failure": "若只给出 1,000 聪而缺少虚拟大小，无法算出每虚拟字节的费率。入池高度也不能当作 B 的确认高度。",
+   "source": "kernel/mempool_entry.h"
+  },
+  {
+   "title": "mapTx · 交易条目多索引",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "definition": "可以按多个键访问同一批内存池交易条目的容器。",
+   "purpose": "查找交易与按不同顺序迭代交易可以共享同一批记录。",
+   "inputs": "同一组 CTxMemPoolEntry，按 txid、wtxid、入池时间等建立不同索引。",
+   "method": "已知 B 的 txid 时，通过对应索引直接定位条目；按入池时间遍历时，切换到时间索引，同一个 B 仍对应同一个条目。",
+   "result": "收到含 B 的块后，④可用块内 B 的 txid 查出并移除它的本地条目。此前没收过 B 时，查找结果为空，⑦照样能从块体验证 B。",
+   "failure": "拿 U 的前序 txid 查 mapTx，查的是创建 U 的交易；要找当前占用 U 的 B，须用整个 U 查 mapNextTx。",
+   "source": "txmempool.h#L339"
+  },
+  {
+   "title": "冲突替换 · ReplacementChecks",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "inputs": "假设④先收了 C。B 也花 U。③取得直接冲突 C、须连带移除的池内后代，以及相关费用和虚拟大小。",
+   "method": "③检查 B 相对直接冲突的费率，核算它能否覆盖被替换集合的费用和额外中继成本，并检查其他替换条件。准入成功后才由④应用变更。",
+   "result": "若 B 成功替换 C，④移除 C 及受影响的后代，登记 U → B。两笔交易竞争的是本地池里的位置，⑧此时仍有 U。",
+   "failure": "算例：若 C 为 150 vB、费用 1,200 聪，费率为 8 聪/vB；即使 B 更小、费率更高，它的总费用只有 1,000 聪，连 C 的费用都未覆盖，替换失败。",
+   "source": "validation.cpp#L974"
+  },
+  {
+   "title": "接块清理 · removeForBlock",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "inputs": "输入是刚接上活动链的块内交易列表、mapTx 和输入占用索引。",
+   "method": "逐笔按 txid 移出已确认的池内交易，再按块内交易的输入查池内冲突。冲突项及依赖它的后代须移除；父交易正常确认时，仍有效的未确认子交易可以留池。",
+   "result": "若块含 B，按 B 的 txid 移出 B；若块含 C 而池中有 B，则按 C 的输入 U 找到并清出 B。钱包随后可从接块通知得知链上结果。",
+   "failure": "只按 C 的 txid 删除会漏掉 B：二者标识不同，冲突要靠共同输入 U 找到。",
+   "source": "txmempool.cpp#L619"
+  }
+ ],
+ "5": [
+  {
+   "title": "CheckTxInputs · 输入金额与费用检查",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "inputs": "普通交易的输入 Coin 金额以及新输出金额。",
+   "method": "CheckTxInputs 检查输入可用性、金额范围等条件。输入总额减去输出总额，得到这笔交易的手续费。",
+   "result": "③用 1,000 聪继续算入池费率；⑦验 K 时将有效交易手续费计入全块费用。",
+   "failure": "若把 B:0 改成 62,000 聪并保留 39,000 聪找零，输出总额超过输入，即使重新签名也无效。",
+   "source": "consensus/tx_verify.cpp"
+  },
+  {
+   "title": "P2WPKH · 见证脚本验证",
+   "resource": ["Block Zero · Script Playground", "https://blockzerobtc.com/tools/script-playground"],
+   "inputs": "B 输入中的签名、公钥，U 的见证程序、旧金额，以及交易和签名哈希类型。",
+   "method": "脚本解释器核对公钥哈希与旧输出的 20 字节程序，按见证 v0 规则用旧金额和 scriptCode 等数据构造签名摘要，验证 ECDSA 签名。",
+   "result": "③和⑦按各自适用的脚本标志调用检查，判断 B 是否得到花费 U 的授权。",
+   "failure": "换入另一把公钥，其哈希与 U 的程序不匹配，脚本检查失败。",
+   "source": "script/interpreter.cpp#L1568"
+  },
+  {
+   "title": "CheckTransaction · 交易结构检查",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "inputs": "交易自身的输入、输出、金额及序列化大小等。",
+   "method": "先检查输入输出是否为空、输出金额范围、普通交易输入引用及重复输入等，无需读取 U 的金额。",
+   "result": "③和验块路径都能先筛掉结构错误的 B，再花时间做依赖旧币的检查。",
+   "failure": "同一笔 B 把 U 重复列作两个输入，即使给出两份签名也无法通过。",
+   "source": "consensus/tx_check.cpp"
+  },
+  {
+   "title": "CScriptWitness · 输入见证栈（witness stack）",
+   "resource": ["SatoshiBench · SegWit", "https://satoshibench.com/learn/segwit/"],
+   "definition": "与一个输入对应的有序字节串列表。",
+   "purpose": "验证脚本时可从中取得该输入提供的授权材料。",
+   "inputs": "CScriptWitness.stack 是 std::vector<std::vector<unsigned char>>；外层下标选元素，内层字节串保存该项数据。",
+   "method": "本例原生 P2WPKH 的栈有两项，依次为签名（含哈希类型字节）和公钥。解释器结合 U 的见证程序和金额检查它们。",
+   "result": "⑤从 B 本身取得见证，从输入视图取得旧输出条件。③和⑦都能使用这份授权材料。",
+   "failure": "若只给出签名而漏掉公钥，这个 P2WPKH 输入的见证栈不满足要求。",
+   "source": "script/script.h"
+  }
+ ],
+ "6": [
+  {
+   "title": "nChainWork · 累计工作量比较",
+   "resource": ["Bitcoin Stale Blocks · 主网分叉树", "https://bitcoin-data.github.io/stale-blocks/tree/"],
+   "definition": "区块索引中从祖先到该块逐块累加的工作量。",
+   "purpose": "节点可以比较不同有效分支所代表的总工作量。",
+   "inputs": "当前块的 nChainWork 等于父块 nChainWork 加 floor(2²⁵⁶ / (T + 1))，其中 T 是当前块目标。",
+   "method": "由目标算出本块工作量，加到父块的累计值。⑥优先尝试工作量高且具备所需数据的候选，连接时还要通过区块验证。",
+   "result": "等难度下，P→L1→L2 比 P→K 多一块工作量，触发切链尝试。",
+   "failure": "即使工作量更高，若 L1 同时收录 B、C 双花 U，执行失败，这条分支无法采用。",
+   "source": "chain.cpp"
+  },
+  {
+   "title": "FindFork · 查找共同祖先",
+   "resource": ["Bitcoin Stale Blocks · 主网分叉树", "https://bitcoin-data.github.io/stale-blocks/tree/"],
+   "inputs": "当前活动链尖 K、候选链尖 L2，以及索引的高度和父指针。",
+   "method": "沿候选祖先回溯，定位仍在活动链上的最近祖先 P。⑥从旧尖向后断到 P，再按父先子后的次序接新块。",
+   "result": "重组第三、四幕依次断 K、接 L1、接 L2，⑦获得每次应处理的块。",
+   "failure": "若先接 L2，输入视图还没有执行其父块 L1，不能按该顺序连接。",
+   "source": "chain.cpp#L131"
+  },
+  {
+   "title": "CChain · 活动链路径",
+   "resource": ["Bitcoin Stale Blocks · 主网分叉树", "https://bitcoin-data.github.io/stale-blocks/tree/"],
+   "definition": "按高度组织的一条链上的区块索引序列。",
+   "purpose": "节点可以快速定位特定高度的块并判断某块是否在当前路径上。",
+   "inputs": "按高度排列的区块索引指针，末项指向当前活动链尖。",
+   "method": "按高度查当前路径；判断某个索引是否属于活动链，还要核对同高度的索引是否就是它。",
+   "result": "K 和 L1 高度相同。采用 K 时该高度对应 K，重组完成后对应 L1。",
+   "failure": "只比高度会把两个兄弟块都当作活动链成员。",
+   "source": "chain.h"
+  }
+ ],
+ "7": [
+  {
+   "title": "ConnectBlock · 按序执行区块",
+   "resource": ["SatoshiBench · 下一块候选交易", "https://satoshibench.com/next-block/"],
+   "inputs": "完整块、有序交易列表及父块的 UTXO 视图。",
+   "method": "ConnectBlock 在工作视图中逐笔检查输入并更新 Coin。后面的交易读取前面交易已产生的变动。",
+   "result": "K 中 B 花 U 后，下一笔就看不到 U；兄弟块 L1 从 P 单独执行时，C 却可以找到 U。",
+   "failure": "同一块内 C 再花 U，整块失败，B 在工作视图中的写入也不能成为活动链结果。",
+   "source": "validation.cpp#L2440"
+  },
+  {
+   "title": "DisconnectBlock · 逆序断块",
+   "resource": ["Bitcoin Stale Blocks · 主网分叉树", "https://bitcoin-data.github.io/stale-blocks/tree/"],
+   "inputs": "旧块体及按交易、输入位置对应的撤销数据。",
+   "method": "从块尾逆序处理，按 txid 与输出序号移除新输出，再把撤销数据里的旧 Coin 放回对应输入引用的位置。",
+   "result": "若 B 创建了 B:0，而同块后面的 D 花掉 B:0，断块时先撤销 D，移除 D 的输出并恢复 B:0；再撤销 B，移除 B:0、B:1 并恢复 U。这样 B:0 在断块完成后不会残留。",
+   "failure": "若块内后笔交易花了前笔的新输出，按正序撤销可能在错误时刻恢复这个块内输出。",
+   "source": "validation.cpp#L2298"
+  },
+  {
+   "title": "UpdateCoins · 更新工作视图",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "inputs": "当前交易、创建高度、可写 Coin 视图及本笔交易的撤销记录。",
+   "method": "普通交易的每个输入都消耗一个旧 Coin，将旧值留下供回滚；再以本笔 txid 和输出序号登记可保留的新输出。",
+   "result": "K 内执行 B 后，工作视图里 U 已花，B:0 和 B:1 已加入，后续块内交易按这个状态继续执行。",
+   "failure": "后面的交易若再次引用 U，将读不到可花输入，整块不能提交。",
+   "source": "validation.cpp#L2101"
+  }
+ ],
+ "8": [
+  {
+   "title": "COutPoint · 按旧输出引用查币",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "definition": "由交易标识和输出序号组成的一项旧输出引用。",
+   "purpose": "节点可以用它准确查找输入想要花费的那一项钱。",
+   "inputs": "COutPoint.hash 是 32 字节 Txid（transaction identifier，交易标识）；n 是 uint32_t，从 0 开始的输出编号。输入的 prevout 使用这个键查询 Coin。",
+   "method": "输入只携带引用。按键查询给定的 coins 视图，取得当前仍可用的 Coin，再由③或⑦检查金额、授权等条件。",
+   "result": "B 引用 U，100,000 聪和 Alice 的旧锁定脚本由⑧提供。",
+   "failure": "同一 txid 配了错误的输出编号，可能查不到 Coin，或取到金额和脚本都不同的输出。",
+   "source": "coins.h"
+  },
+  {
+   "title": "CCoinsViewCache · 分层缓存与提交",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "definition": "保存在内存中的一层 UTXO 视图，缓存下层记录及其更新。",
+   "purpose": "验证区块时可高效读取和修改旧币，再把变更提交到下层。",
+   "inputs": "父状态、CCoinsViewCache 中新增、修改或花费的条目。",
+   "method": "⑦在子缓存中执行整块。成功接块时把变更合入上层链状态缓存，底层数据库按刷盘安排持久化。",
+   "result": "试接 K 时子缓存已移除 U；成功采用 K 后，活动链查询才反映 B 的两个新输出。",
+   "failure": "若 K 尾部出现无效交易，不能把之前执行 B 的部分结果提交给活动链。",
+   "source": "validation.cpp"
+  },
+  {
+   "title": "Coin · 未花输出记录",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "definition": "Coin 是 Bitcoin Core 对一项 UTXO（Unspent Transaction Output，未花费交易输出）的记录。它与创建交易的输出编号共同对应一项可独立花费的钱。",
+   "purpose": "节点借这份记录检查金额、花费资格和脚本条件。",
+   "inputs": "Coin.out 是 CTxOut，含 nValue（int64_t，聪）和 scriptPubKey（CScript）。Coin 另存 nHeight（31 位创建高度）与 fCoinBase（1 位标志）。",
+   "method": "用 COutPoint 查到 Coin 后，金额用于费用计算，脚本用于授权检查；高度与来源还用于相关花费条件。",
+   "result": "⑧给③提供 U 的 100,000 聪与旧脚本。断块时⑦也需要恢复这些字段。",
+   "failure": "若只恢复金额，后续验证 C 时就缺少 U 的真实锁定条件。",
+   "source": "coins.h"
+  }
+ ],
+ "9": [
+  {
+   "title": "CBlockIndex · 按索引定位区块",
+   "resource": ["Bitcoin Core Onboarding · 钱包交易识别", "https://bitcoincore.academy/transaction-identification.html"],
+   "definition": "节点为一个已知区块维护的索引条目，关联块头、父块、链工作量和数据状态等信息。",
+   "purpose": "节点可以沿父指针定位祖先，并跟踪可供下载或验证的分支。",
+   "inputs": "pprev 指向父块索引，nHeight 记录高度，nChainWork 累加工作量，nStatus 记录验证和可用性状态，nFile、nDataPos、nUndoPos 定位本地数据。",
+   "method": "BlockManager 查索引，用数据可用状态和块文件位置定位 blk 文件中的完整块。索引同时容纳不同分支。",
+   "result": "⑥能在索引中找到 K 和 L1；⑦要执行 B 或 C 时还需取得对应块体。",
+   "failure": "只有头或块体已被裁剪时，找到索引也无法直接从本地读出完整块。",
+   "source": "node/blockstorage.cpp"
+  },
+  {
+   "title": "CBlockUndo · 按输入保存旧币",
+   "resource": ["Bitcoin Core Onboarding · 钱包交易识别", "https://bitcoincore.academy/transaction-identification.html"],
+   "definition": "区块连接时保存的撤销记录，其中包含执行普通交易输入时移除的旧币。",
+   "purpose": "断块时可与块体配合还原连接之前的 UTXO 状态。",
+   "inputs": "CBlockUndo 按非 coinbase 交易排列 CTxUndo，每项按输入顺序保存被花掉的 Coin。",
+   "method": "断块时用旧块体找输入引用，用撤销记录中同一位置的 Coin 取回原金额、脚本和元数据。",
+   "result": "⑨向⑦交出 U 的旧 Coin，⑦负责写回⑧。钱包只需接收后续断块事件。",
+   "failure": "若只有 B 的输入引用，没有旧 Coin，就无法从引用推算 U 原来的金额和脚本。",
+   "source": "undo.h"
+  },
+  {
+   "title": "blk 文件 · 完整区块体",
+   "resource": ["Bitcoin Core Onboarding · 钱包交易识别", "https://bitcoincore.academy/transaction-identification.html"],
+   "definition": "节点存放序列化区块体的本地文件。",
+   "purpose": "读取区块索引记录的位置即可取得对应块体。",
+   "inputs": "序列化的块头和按块内顺序排列的完整交易，含 coinbase。",
+   "method": "按块索引指向的位置读取并解码区块，即可按原顺序遍历交易和每笔交易的输入输出。",
+   "result": "即使④从未保存 B，⑦也能从 K 取到 B；断 K 时还能定位 B:0 和 B:1。",
+   "failure": "只读取块头可以知道交易承诺，却不能从根哈希还原 B 的输出。",
+   "source": "node/blockstorage.cpp"
+  }
+ ],
+ "10": [
+  {
+   "title": "TransactionAddedToMempool · 入池通知",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "inputs": "入池交易信息、内存池序号和注册的验证事件订阅者。",
+   "method": "交易接纳路径触发 TransactionAddedToMempool。验证接口分发事件，链通知适配层向同进程钱包交付交易。",
+   "result": "B 进入④后，⑪拿到 B 并检查 B:0 是否属于 Bob。",
+   "failure": "若③因费率拒绝 B，本次没有成功入池事件可通知钱包。",
+   "source": "validationinterface.h"
+  },
+  {
+   "title": "BlockConnected · 接块通知",
+   "resource": ["Bitcoin Stale Blocks · 主网分叉树", "https://bitcoin-data.github.io/stale-blocks/tree/"],
+   "inputs": "已连接的区块、对应区块索引和链状态角色。",
+   "method": "验证事件分发层交付接块回调，钱包的链通知适配层提供区块和位置，供钱包检查其中的相关交易。",
+   "result": "Bob 在 K 里第一次见到 B 也能识别 B:0，记录 B 的确认位置。",
+   "failure": "若把仅收到完整 K 当作接块通知，会在整块验证完成前过早确认 B。",
+   "source": "validationinterface.h"
+  },
+  {
+   "title": "BlockDisconnected · 断块通知",
+   "resource": ["Bitcoin Stale Blocks · 主网分叉树", "https://bitcoin-data.github.io/stale-blocks/tree/"],
+   "inputs": "刚断开的完整块 K 与它原来的链上位置。",
+   "method": "节点分发断块回调，钱包用旧块识别需要更新的交易，撤下依赖 K 的确认。",
+   "result": "回退到 P 时，⑦用旧 Coin 恢复 U，⑪用断块通知更新 B，两项操作使用不同的数据。",
+   "failure": "若钱包漏处理断 K，即使 B 已离开活动链，收款记录也可能仍显示旧确认。",
+   "source": "validationinterface.h"
+  },
+  {
+   "title": "ValidationSignals · 订阅与分发",
+   "resource": ["Bitcoin Core Onboarding · bitcoind 与钱包组件图", "https://bitcoincore.academy/components-overview.html"],
+   "definition": "节点组件向订阅者分发验证相关事件的通知机制。",
+   "purpose": "钱包可在区块连接、断开等状态变化时更新本地记录。",
+   "inputs": "已注册的验证接口订阅者、事件及回调参数。",
+   "method": "验证路径发布事件，由分发机制按事件类型调用订阅接口；钱包通过本地链通知适配层接收。",
+   "result": "接 K 与断 K 分别触发不同通知，⑦修改 Coin 后，⑪可独立更新交易状态。",
+   "failure": "如果钱包未订阅这条通知路径，不能指望本次回调自动更新界面。",
+   "source": "validationinterface.h"
+  }
+ ],
+ "11": [
+  {
+   "title": "收款脚本匹配 · 识别 B:0",
+   "resource": ["Block Zero · UTXO Visualizer", "https://blockzerobtc.com/tools/utxo-visualizer"],
+   "inputs": "B 的各个输出，以及钱包由描述符派生、可识别的锁定脚本。",
+   "method": "钱包按输出脚本查自己的脚本集合，命中后记录相关交易，再结合入池或区块位置计算显示状态。",
+   "result": "本地回调到达时，B:0 匹配 Bob 的脚本；B:1 是 Alice 的找零。",
+   "failure": "金额相同但脚本属于别人时，钱包不会把这项输出计作自己的收款。",
+   "source": "wallet/wallet.cpp#L1439"
+  },
+  {
+   "title": "mapTxSpends · 按输入追踪冲突",
+   "resource": ["SatoshiBench · 模拟内存池", "https://satoshibench.com/learn/mempool/"],
+   "definition": "钱包从输出引用到已知花费交易的多值索引。",
+   "purpose": "钱包能找出哪些交易试图花费同一项输出。",
+   "inputs": "新接块中的 C、C 的输入引用，以及钱包已知交易的输入花费索引。",
+   "method": "钱包用 C 的输入 U 查到同样花 U 的 B。断 K 撤下原确认，接 L1 后将 B 标为与活动链交易冲突。",
+   "result": "重组最后一幕，B 的收款记录可保留，60,000 聪退出已确认余额。",
+   "failure": "若只在 C 的输出中寻找 Bob 的脚本，就会漏掉这次冲突。",
+   "source": "wallet/wallet.cpp#L1515"
+  },
+  {
+   "title": "CWalletTx · 钱包交易记录",
+   "resource": ["Bitcoin Core Onboarding · bitcoind 与钱包组件图", "https://bitcoincore.academy/components-overview.html"],
+   "definition": "钱包保存的一笔相关交易与确认、冲突等状态信息。",
+   "purpose": "界面查询时可以把链上变化与用户自己的付款关联起来。",
+   "inputs": "钱包关心的完整交易及其状态，例如已确认交易所在的块和高度。",
+   "method": "钱包把回调中的交易与已有记录匹配，更新它所在的链上位置或冲突状态；确认深度随活动链尖变化。",
+   "result": "⑪在 B 入池后保存一条收款记录，采用 K 后更新同一笔 B 的确认位置。",
+   "failure": "重组后仍沿用 K 的确认位置，会把已经冲突的 60,000 聪继续计为已确认收款。",
+   "source": "wallet/transaction.h"
+  }
+ ],
+ "template": [
+  {
+   "title": "CreateNewBlock · 按依赖选取交易",
+   "resource": ["SatoshiBench · 下一块候选交易", "https://satoshibench.com/next-block/"],
+   "inputs": "当前链尖 P、池内候选交易、费用、依赖和区块容量。",
+   "method": "BlockAssembler 构造延伸 P 的候选块，评估交易及所需未确认祖先的费用与资源，把祖先排在后代之前。",
+   "result": "B 入选后，挖矿程序取得含 B 的模板，1,000 聪计入全块费用。",
+   "failure": "即使 B 已入池，剩余容量不足以容纳它时，这份模板也可以不含 B。",
+   "source": "node/miner.cpp#L118"
+  },
+  {
+   "title": "候选块模板 · 区块与费用",
+   "resource": ["SatoshiBench · 下一块候选交易", "https://satoshibench.com/next-block/"],
+   "definition": "围绕父块选定的一套构块材料，含交易顺序及奖励等信息。",
+   "purpose": "矿池可以据此构造供搜索的块，并从命中结果组装完整区块。",
+   "inputs": "候选区块及交易对应的费用等辅助数据。区块包含指向父块的头和排好序的交易。",
+   "method": "模板构造者把选定交易与 coinbase 组织在一起，供后续生成作业时计算承诺并构造区块头。",
+   "result": "含 B 的模板允许矿场为这一组交易搜索；此时 Bob 的 UTXO 尚未改变。",
+   "failure": "若作业修改 coinbase 却沿用旧 Merkle 根，提交的头与完整块交易承诺不符。",
+   "source": "node/miner.cpp#L118"
+  }
+ ],
+ "jobs": [
+  {
+   "title": "份额核验 · 重建区块头并比较目标",
+   "resource": ["Bitcoin 开发指南 · Pooled Mining 与 Stratum", "https://developer.bitcoin.org/devguide/mining.html"],
+   "inputs": "作业标识、重建头所需的参数、池方份额目标与区块网络目标。",
+   "method": "协调服务用对应作业重建头并复算哈希。满足份额目标可记工，同时满足网络目标则重建完整块交给全节点。",
+   "result": "普通份额一幕只更新矿池记工；命中网络目标一幕才提交 K。",
+   "failure": "哈希高于份额目标时，该回报连普通份额也未达到。",
+   "source": ""
+  },
+  {
+   "title": "作业记录 · 回报与模板的对应关系",
+   "resource": ["Bitcoin 开发指南 · Pooled Mining 与 Stratum", "https://developer.bitcoin.org/devguide/mining.html"],
+   "definition": "矿池把作业标识与模板、目标及重建参数关联的记录。",
+   "purpose": "矿机提交结果后，矿池可以还原当时交付的任务并复核。",
+   "inputs": "作业标识、对应的模板和构造参数、该作业的份额目标。具体字段取决于矿池协议。",
+   "method": "协调服务用回报中的作业标识查记录，将 nonce 等变化量放回当时的头，再复算。",
+   "result": "矿场回报含 B 模板上的命中时，池方能够定位 K 所用的父块和交易集合。",
+   "failure": "错用另一份模板的 Merkle 根，复算得到的是另一个头哈希。",
+   "source": ""
+  }
+ ],
+ "asic": [
+  {
+   "title": "双 SHA-256 · 搜索 nonce",
+   "resource": ["SatoshiBench · 区块头 PoW", "https://satoshibench.com/learn/proof-of-work/"],
+   "inputs": "80 字节候选区块头，含前块哈希、Merkle 根、时间、nBits 和 nonce 等字段。",
+   "method": "控制器准备头，芯片尝试 nonce，计算两次 SHA-256。以整数比较哈希和目标，把命中参数交回控制器。",
+   "result": "在含 B 的模板上搜索时，矿场回传作业标识和命中参数，池方可复算。",
+   "failure": "哈希虽低于份额目标但高于网络目标时，只能作为普通份额。",
+   "source": "pow.cpp#L161"
+  },
+  {
+   "title": "区块头 · 80 字节搜索输入",
+   "resource": ["SatoshiBench · 区块头 PoW", "https://satoshibench.com/learn/proof-of-work/"],
+   "definition": "序列化长度为 80 字节的区块头部，包含版本、父块哈希、Merkle 根、时间、nBits 和 nonce。",
+   "purpose": "父块哈希连接历史，Merkle 根承诺交易，整段头字节供工作量证明核验。",
+   "inputs": "版本、前块哈希、Merkle 根、时间、nBits、nonce。",
+   "method": "控制器按字段顺序生成头字节交给芯片。交易内容经 Merkle 根影响搜索输入；改动 nonce 也会改变头哈希。",
+   "result": "ASIC 搜索含 B 的 K 时，输入只需对应的头数据；完整 B 仍由矿池掌握。",
+   "failure": "若前块哈希填错，即使头哈希命中，也没有证明原作业指定的候选头。",
+   "source": "primitives/block.h"
+  }
+ ]
+};
+const moduleGuides={
+ "1": [
+  "每个邻居对应一个 CNode。传输层负责从字节流还原消息，完整消息以 CNetMessage 交给消息处理。",
+  "按连接保留对端身份、收发队列和未收完整的字节。来自不同邻居的两段数据分别在各自连接上拼接。",
+  "①把邻居的通告交给②，也把②生成的 getdata 发回指定邻居。完整 B 到达后，仍由②决定交给哪个验证入口。"
+ ],
+ "2": [
+  "CInv 表示通告项目，交易请求跟踪器记录可索取对象；消息分派按 tx、headers、block 选择入口。",
+  "哪笔交易由谁通告、已向谁索取、请求是否得到响应。收到完整交易后，②可以把请求与响应对应起来。",
+  "先决定要不要取 B，再把完整 B 交给③。若收到完整块 K，则交给⑥走验块路径。"
+ ],
+ "3": [
+  "单笔接纳入口组织预检查、冲突替换检查与脚本检查。Workspace 保存这次尝试的中间结果。",
+  "本次判断所用的费用、虚拟大小、冲突集合和验证结果。检查完成前，这些候选数据仍可能被丢弃。",
+  "读⑧找旧币，查④找冲突，调用⑤验证。成功后把变更应用到④，失败时返回拒绝原因。"
+ ],
+ "5": [
+  "CheckTransaction 做交易自身的结构检查，CheckTxInputs 检查旧币与金额，脚本解释器用输入的见证栈验证 P2WPKH 授权。",
+  "一次检查必须对应同一笔交易、正确的输入视图和适用规则。入池与验块的调用方分别提供上下文。",
+  "向③或⑦返回检查结果。例如 B 能授权花费 U，但若该块中前一笔交易已花掉 U，输入检查仍会失败。"
+ ],
+ "6": [
+  "CChain 记录活动路径；候选分支按累计工作量参与选择，FindFork 定位共同祖先。",
+  "当前采用的链尖、候选尖端及其祖先关系。分支的累计工作量和已完成的验证程度是两项独立信息。",
+  "安排⑦先从 K 退回 P，再依次尝试接 L1、L2。候选块通过验证后，才把活动路径推进到它。"
+ ],
+ "7": [
+  "ConnectBlock 按块内顺序验证，UpdateCoins 修改工作视图，DisconnectBlock 逆序撤销。",
+  "执行到当前交易时哪些输出仍可花，以及回滚已花输入所需的旧 Coin。兄弟块各自从同一父状态开始。",
+  "接 K 时花 U 并产生 B:0、B:1；断 K 时借助⑨恢复 U，使⑦能从 P 验证含 C 的 L1。"
+ ],
+ "8": [
+  "COutPoint 是查询键，Coin 是对应的旧币；CCoinsViewCache 承载本次执行的变化。",
+  "给定链位置上，从旧输出引用到未花 Coin 的映射，以及缓存中哪些变更需要传给上层。",
+  "给③提供 U 的金额和脚本，承接⑦的接块与断块写入。成功采用 K 后，活动链查询才能看到 B 的两个输出。"
+ ],
+ "9": [
+  "CBlockIndex 记录头和分支元数据，blk 文件保存序列化区块，CBlockUndo 在 rev 文件中保存撤销材料。",
+  "把块哈希、父子关系、验证状态和磁盘位置对应起来。需要回读时还要检查块体与撤销数据是否可用。",
+  "帮⑥找分叉点，向⑦提供完整旧块与撤销材料。块体给出要移除哪些输出，撤销材料给出恢复 U 所需的旧值。"
+ ],
+ "10": [
+  "ValidationSignals 连接事件产生者与订阅者，分别分派入池、接块和断块回调。",
+  "已注册的订阅关系及待交付事件的顺序。每个订阅者应按产生顺序看到与它有关的回调。",
+  "把 B 或区块及位置送到同进程的钱包。⑪收到断 K 和接 L1 两个事件后，分别更新确认与冲突。"
+ ],
+ "11": [
+  "CWalletTx 记录相关交易和状态，收款脚本匹配识别自己的输出，mapTxSpends 从输入追踪竞争花费。",
+  "Bob 能识别哪些脚本、哪些交易与他有关，以及它们处于待确认、已确认还是冲突状态。",
+  "收到 B 时认出 B:0 的 60,000 聪；接 K 后更新确认，接 L1 后由共同输入 U 找到与 C 冲突的 B。"
+ ],
+ "template": [
+  "候选块模板包含父块引用、有序交易和 coinbase；选取算法兼顾费用、依赖和区块限制。",
+  "同一份模板中的父块、交易顺序和奖励金额须互相一致。交易集合变了，相关承诺也要更新。",
+  "在 P 上选入 B，将其 1,000 聪计入全块费用，向独立挖矿程序或矿池作业协调提供模板。"
+ ],
+ "jobs": [
+  "作业记录把标识与模板、构造参数、份额目标对应起来；回报核验用这些数据重建区块头。",
+  "每次回报对应哪份作业，以及该作业采用的份额目标和网络目标。",
+  "向矿场下发作业，核验普通份额；收到网络目标命中后重建完整 K，提交本池全节点。"
+ ],
+ "asic": [
+  "控制器准备候选区块头，芯片改变 nonce，计算区块头的双 SHA-256 哈希。",
+  "当前作业对应的头字段、正在搜索的 nonce 和命中参数。控制器用作业标识把结果对应回正确的任务。",
+  "为矿池搜索满足目标的头哈希，并回报重建参数。矿池据此复算，决定记工还是提交完整块。"
+ ],
+ "4": [
+  "每笔交易对应一个 CTxMemPoolEntry，记录交易本身、手续费、重量和入池时间等。mapTx 组织这些条目，可按交易标识查找。mapNextTx 按旧输出引用查找池内花费者。池中还维护交易间的父子关系，例如哪笔子交易花了 B:0。",
+  "条目、输入占用和父子关系要彼此一致。B 入池后，按 B 的 txid 能找到它的条目，按 U 能找到花费者 B。此时同一个池里，U 只能由一笔交易占用；到⑧查活动链，U 仍是价值 100,000 聪的未花输出。",
+  "③审查竞争交易 C 时，向④查询谁占用 U；若③批准替换，④移除 B 及受影响的后代，再登记 C。矿池组块时从④挑选候选交易。⑥采用新区块后，④清理已确认项和冲突项。"
+ ]
+};
+catalog.cpu=[{title:'nonce 搜索 · 双 SHA-256',inputs:'候选 K 的 80 字节区块头和网络目标。',method:'改变 nonce，计算两次 SHA-256，以整数比较头哈希与目标。耗尽 nonce 后可更新 coinbase 的额外计数并重算 Merkle 根，获得另一组头。',result:'命中后把对应的完整 K 交给本机 Core 验证。',failure:'哈希高于目标时继续搜索；即使满足目标，无效交易也会使整块被拒。',source:'pow.cpp#L161'}];
+moduleGuides.cpu=['本机 RPC 客户端、候选块和区块头搜索循环。','模板的父块、coinbase、交易顺序和当前 nonce 须与待提交的完整块一致。','请求模板、组装 K、搜索工作量证明并将命中的完整块交回 Core。'];
+const cardDialog=document.querySelector('#card');
+function showTopics(key,name){
+ const overview=byId('module-overview');
+ overview.hidden=!key;
+ if(key){
+  const [composition,maintained,purpose]=moduleGuides[key];
+  byId('composition').textContent=composition;
+  byId('maintained').textContent=maintained;
+  byId('function').textContent=purpose;
+ }
+ const topics=document.querySelector('#topics');
+ topics.replaceChildren();
+ if(!key)return;
+ const label=document.createElement('strong');
+ label.textContent='知识目录';topics.append(label);
+ for(const card of catalog[key]){
+  const button=document.createElement('button');
+  button.textContent=card.title;
+  button.onclick=()=>{
+   byId('cardModule').textContent=name;
+   byId('cardTitle').textContent=card.title;
+   const body=byId('cardBody');body.replaceChildren();
+   const fields = card.definition
+    ? [['概念',card.definition],['用途',card.purpose],['字段与内容',card.inputs]]
+    : [['输入与字段',card.inputs],['怎样处理',card.method],['流程中的结果',card.result],['失败例子',card.failure]];
+   for(const [title,text] of fields){
+    const term=document.createElement('dt'),definition=document.createElement('dd');
+    term.textContent=title;definition.textContent=text;body.append(term,definition);
+   }
+   const source=byId('cardSource');
+   source.hidden=!card.source;
+   if(card.source){
+    source.href='https://github.com/bitcoin/bitcoin/blob/f490f5562d4b20857ef8d042c050763795fd43da/src/'+card.source;
+    source.textContent='Core v29.0 源码 · '+card.source;
+   }
+   const resource=byId('cardResource');
+   [resource.textContent,resource.href]=card.resource;
+   cardDialog.showModal();cardDialog.scrollTop=0;
+  };
+  topics.append(button);
+ }
+}
+function focusModule(id){
+ if(id===null && mode!=='arch'){showStage();return;}
+ edges.forEach((edge,i)=>{
+  edgeNodes[i].classList.remove('off-path','current-edge');
+  edgeNodes[i].querySelector('path').setAttribute('d',edge[3]);
+  edgeNodes[i].querySelector('text').textContent=edge[6];
+ });
+ const related=new Set([id]);links.replaceChildren();
+ edges.forEach(([from,to,kind,d,x,y,label,detail],i)=>{
+  const active=(from===id||to===id) && !(mode==='pool' && to===11);
+  edgeNodes[i].classList.toggle('muted',!!id&&!active);
+  if(id&&active){
+   related.add(from);related.add(to);
+   const item=document.createElement('li');
+   item.textContent=(from||'邻居')+' → '+(to||'邻居')+'　'+detail;links.append(item);
+  }
+ });
+ moduleNodes.forEach((node,i)=>{
+  node.classList.toggle('selected',i+1===id);
+  node.classList.toggle('muted',!!id&&!related.has(i+1));
+  node.setAttribute('aria-pressed',i+1===id);
+ });
+ const current=modules.find(row=>row[0]===id);
+ heading.textContent=current?id+' · '+current[3]:initial[0];
+ showTopics(id,heading.textContent);
+ description.textContent=current?current[5]:initial[1];reset.hidden=!id;
+}
+reset.onclick=()=>focusModule(null);
+document.querySelector('.canvas').addEventListener('click',event=>{
+ if(!reset.hidden && event.target.matches('.canvas, #map, .boundary'))focusModule(null);
+});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!cardDialog.open)focusModule(null);});
+const byId=id=>document.getElementById(id);
+let mode='arch', stageIndex=0, missedB=false;
+const common=[
+ {explain:'delivery',title:'邻居通告，节点索取 B',labels:{"0-1": "inv / tx B", "1-0": "getdata", "2-1": "索取 B"},edges:['0-1','1-2','2-1','1-0'],text:'Alice 的钱包已向她的接入全节点提交签好的 B。这里的邻居用 inv 通告标识；②决定索取，①发出 getdata，邻居回传带见证的 tx。'},
+ {explain:'checks',title:'用旧币验证 B',edges:['2-3','8-3','3-5'],text:'②交出完整 B。③按输入引用找到 U 的 100,000 聪和锁定脚本，⑤检查输入金额与 Alice 的见证。扣去 60,000 聪书款和 39,000 聪找零，手续费是 1,000 聪。'},
+ {explain:'policy',title:'按 outpoint 查冲突，通过后登记占用',labels:{"3-4": "登记 U → B"},edges:['3-4'],pool:true,text:'③用 B 引用的 U（前序 txid、输出编号）查询④的花费索引，判断是否已有池内交易占用同一项。本例通过，④登记 B 和 U → B。若费率低于本节点门槛，即使签名正确也会被拒。'}
+];
+const receiveBlock={explain:'header',title:'收到矿池传播的完整块 K',labels:{"0-1": "区块 K", "1-2": "区块载荷", "2-6": "完整块 K"},edges:['0-1','1-2','2-6','6-9'],pool:true,text:'①②从邻居收到或重建完整块 K。⑥处理块头、工作量及父块关系，⑨记录索引和块体。本例 K 接在当前链尖 P 上。'};
+const connect={explain:'block',title:'在父块状态上执行整块',labels:{"6-7": "待接块 K", "7-8": "临时花 U、添 B 输出"},edges:['6-7','7-5','7-8'],pool:true,text:'⑦直接从 K 的块体取 B，从 P 的状态开始逐笔验证。在临时视图中花 U、添 B:0 和 B:1。若同块随后还有 C 花 U，C 查不到 U，整块失败。'};
+const adopt={explain:'commit',title:'采用 K，提交新的活动链状态',labels:{"7-8": "提交 K 的变更", "7-9": "写撤销记录"},edges:['7-8','7-9','6-4'],adopted:true,text:'整块通过并接上活动链，⑧采用新的 UTXO 状态，⑨保存断块时恢复旧币所需的数据。④清理块内已确认交易及冲突项。'};
+const bob=[...common,
+ {title:'中继 B，通知本地钱包',labels:{"2-1": "通告 B", "1-0": "inv · B"},edges:['2-1','1-0','3-10','10-11'],pool:true,text:'节点可向其他邻居通告 B。⑩在同一进程内回调⑪，钱包匹配 B:0 的收款脚本，记下待确认的 60,000 聪。'},
+ receiveBlock,connect,adopt,
+ {title:'Bob 收到首次确认',labels:{"6-10": "接块通知 K", "10-11": "K 的确认"},edges:['6-10','10-11'],adopted:true,text:'⑩将已接区块 K 与链上位置交给⑪。钱包从块里识别 B:0，显示这笔 60,000 聪收款已有 1 次确认。'}];
+const pool=[...common,
+ {explain:'template',title:'从本地池挑选交易',edges:['2-1','1-0'],outside:['template'],wires:['pool-template','tip-template'],pool:true,outcome:'含 B 的模板',text:'矿池节点也可中继 B。模板构造读取④的候选交易和⑥的链尖 P，按依赖、费率及区块容量选中 B，把它的 1,000 聪计入全块费用。'},
+ {title:'向矿场下发作业',outside:['template','jobs','asic'],wires:['template-jobs','jobs-asic'],pool:true,outcome:'搜索区块头',text:'作业协调根据模板下发作业参数和矿池份额目标。矿场控制器准备区块头，ASIC 尝试不同 nonce，计算头哈希。'},
+ {title:'普通份额：矿池记工',outside:['asic','jobs'],wires:['asic-jobs'],pool:true,outcome:'普通份额已记工',text:'矿场上报作业标识、nonce 等参数。矿池重建区块头，核验这次哈希达到份额目标。本次尚未达到网络目标，矿机继续搜索。'},
+ {explain:'proof',title:'命中网络目标，提交 K',outside:['asic','jobs'],wires:['asic-jobs','jobs-core'],pool:true,outcome:'完整候选块 K',text:'随后一次哈希也达到网络目标。矿池复算并用对应模板重建完整 K，将它提交给本池⑥。块里的 coinbase 最多可领取该高度的补贴与全块手续费。'},
+ connect,adopt,
+ {title:'向邻居传播 K',labels:{"2-1": "通告 K", "1-0": "区块通告 K"},edges:['2-1','1-0'],adopted:true,outcome:'K 已在本池活动链上',text:'矿池节点向 P2P 邻居传播 K。其他节点会独立验证；Bob 的确认要等他自己的节点采用 K 并通知钱包。'}];
+const reorg=[
+ {title:'B 入池，U 仍可在链上查到',labels:{"3-4": "登记 U → B", "10-11": "B 已入池"},tip:'P',edges:['2-3','8-3','3-5','3-4','3-10','10-11'],
+  text:'两支共享父块 P，本例各块难度相同。B 花费 U，给 Bob 60,000 聪、找零 39,000 聪。③接纳后，④登记输入占用，⑩把入池事件交给钱包。',
+  states:['有 B，登记 U → B','U · 100,000 聪','待确认收入 60,000 聪 · 0 次确认']},
+ {title:'采用含 B 的块 K',labels:{"6-7": "待接块 K", "7-8": "花 U、添 B 输出", "7-9": "写撤销记录", "6-10": "接块通知 K"},tip:'K',edges:['6-7','7-5','7-8','7-9','6-4','6-10','10-11'],
+  text:'K 接在 P 上。⑦在父块状态上逐笔验块，花掉 U，保存撤销记录。K 成为活动链尖，④清出 B，钱包处理接块回调。',
+  states:['B 已移出，U 的池内占用解除','U 已花。B:0 为 60,000 聪，B:1 为 39,000 聪','已确认收入 60,000 聪 · 1 次确认']},
+ {explain:'proof',title:'断开 K，回到共同父块 P',labels:{"6-7": "待断块 K", "7-8": "移除 B 输出、恢复 U", "7-9": "读取旧 Coin", "6-10": "断块通知 K", "10-11": "撤下确认"},tip:'P',edges:['6-9','6-7','7-9','7-8','6-10','10-11'],
+  text:'L1 与 L2 的累计工作量超过 K 分支。⑥找到共同祖先 P，⑦按 K 的块体移除新增输出，从⑨读取旧 Coin，恢复 U。此处暂停在切链内部，钱包界面可能合并显示后续变化。',
+  states:['池里无 B。旧块中的 B 暂存，等待按新链复查','U 恢复为 100,000 聪。B:0、B:1 已移除','处理断块回调后撤下 K 中的确认，保留 B 的记录']},
+ {title:'接入 L1、L2，C 花掉 U',labels:{"6-7": "接 L1、L2", "7-8": "C 花 U、添 C 输出", "7-9": "写撤销记录", "6-10": "接块通知 L1、L2", "10-11": "块内 C", "8-3": "复查 B：U 已花"},tip:'L2',edges:['6-7','7-5','7-8','7-9','6-10','10-11','8-3'],
+  text:'⑦先接 L1，C 从父块 P 的状态中找到 U 并花掉它，再接 L2。C 的输出都给 Alice。钱包用 C 的输入找到同样花 U 的 B，把这笔收款标为冲突。',
+  states:['C 已在链上。B 的输入已花，无法回池','U 已由 C 花掉，留下 C 的未花输出','B 与 C 冲突，原 60,000 聪移出已确认余额']}
+];
+const solo=[
+ ...common.slice(0,-1),
+ {...common[2],edges:[...common[2].edges,'3-10','10-11'],
+  labels:{...common[2].labels,'10-11':'B 已入池'},
+  text:common[2].text+' 本例通过后，⑩把入池事件交给⑪，Bob 的钱包认出 B:0，显示 0 次确认。'},
+ {explain:'template',title:'从本地池挑选 B',outside:['cpu','template'],wires:['request','solo-pool','solo-tip'],pool:true,outcome:'模板已选入 B',
+  text:'此时 B 已入池，活动链尖为 P。Bob 的独立程序通过本机 RPC 请求 getblocktemplate。Core 按依赖、费率和剩余容量选中 B，模板的奖励额度计入它的 1,000 聪手续费。'},
+ {title:'组装候选块 K',outside:['template','cpu'],wires:['response'],pool:true,outcome:'K 已组装，等待搜索',
+  text:'Core 返回父块、交易列表、目标与奖励额度。独立程序构造付给 Bob 的 coinbase，处理见证承诺，按交易顺序计算 Merkle 根，再填写候选头。B 的书款仍为 0 次确认。'},
+ {title:'用 CPU 搜索 PoW',outside:['cpu'],wires:['hash-loop'],pool:true,outcome:'本次未命中，继续尝试',
+  text:'CPU 改变 nonce，对 80 字节区块头做两次 SHA-256。这次哈希大于网络目标，程序继续搜索。若收到新的活动链尖，可重新请求模板。本课用教学假设演示 CPU 命中主网目标。'},
+ {explain:'proof',title:'命中目标，提交完整 K',outside:['cpu'],wires:['submit'],pool:true,outcome:'PoW 已命中，K 待验证',
+  text:'假设下一次头哈希小于或等于网络目标。独立程序通过本机 RPC 调用 submitblock，把匹配这个头的完整 K 交回 Core。此处暂停在验证入口，B 仍在池内，活动链上仍有 U。'},
+ {explain:'commit',title:'本机采用并传播 K',edges:['6-7','7-5','7-8','7-9','6-4','6-10','10-11','2-1','1-0'],adopted:true,outcome:'K 成为本机链尖',
+  labels:{'6-7':'完整块 K','7-8':'花 U、添 B 输出','7-9':'写撤销记录','6-10':'接块通知 K','10-11':'B 的确认','2-1':'通告 K','1-0':'区块通告 K'},
+  text:'Core 验证工作量、块内交易和奖励上限，采用有效的 K。⑧花掉 U 并加入 B:0、B:1，④清出 B。节点向邻居通告 K，⑩通知⑪，Bob 的 60,000 聪书款获得 1 次确认。'}
+];
+const flows={bob,solo,pool,reorg};
+const mining=byId('mining');
+const wires=[
+ ['pool-template','M40 310H24V700H48','④ 候选交易',92,637,4],
+ ['tip-template','M1048 127V116H32V666H145V683','⑥ 父块 P',199,659,6],
+ ['template-jobs','M268 710H492','候选模板',376,700],
+ ['jobs-asic','M712 699H944','作业、份额目标',826,689],
+ ['asic-jobs','M944 731H712','份额 / 命中参数',827,754],
+ ['jobs-core','M602 683V649H1195V143H1160','完整候选块 K',944,642,6],
+ ['solo-pool','M140 342V501H665V530','候选交易 B',330,494,4],
+ ['solo-tip','M1160 150H1191V563H870','父块 P',1012,554,6],
+ ['request','M697 683V590','getblocktemplate',618,631,0,'rpc'],
+ ['response','M830 590V683','模板、目标、奖励额度',924,646,0,'rpc'],
+ ['hash-loop','M870 723H1010V676H867V683','nonce → 双 SHA-256',1030,747],
+ ['submit','M650 715H591V624H1201V153H1160','submitblock · 完整 K',1080,616,6,'rpc']
+];
+const wireGroups=wires.map(([id,d,label,x,y,core,kind])=>{
+ const g=element(mining,'g',{class:'edge'});
+ element(g,'path',{d,stroke:'var(--wire)','stroke-dasharray':kind==='rpc'?'9 4':'','marker-end':'url(#call)'});
+ element(g,'text',{x,y,'text-anchor':'middle'},label);return g;
+});
+const actors=[['template',48,'矿池 · 模板构造'],['jobs',492,'矿池 · 作业协调'],['asic',944,'矿场 · ASIC 矿机'],['cpu',650,'独立挖矿程序 · CPU']];
+const actorGroups=actors.map(([id,x,label])=>{
+ const g=element(mining,'g',{class:'external',role:'button',tabindex:0,'aria-label':label+'知识目录'});
+ function selectActor(){
+  showStage();
+  const name=g.querySelector('text').textContent;
+  heading.textContent=name;description.textContent='';
+  showTopics(id,name);reset.hidden=false;
+  actorGroups.forEach((group,i)=>group.classList.toggle('muted',actors[i][0]!==id));
+ }
+ g.addEventListener('click',selectActor);
+ g.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();selectActor();}});
+ element(g,'rect',{x,y:683,width:220,height:60,rx:7});
+ element(g,'text',{x:x+110,y:719,'text-anchor':'middle'},label);return g;
+});
+function showStage(){
+ const steps=flows[mode], step=steps[stageIndex];
+ Array.from(byId('stage-list').children).forEach((button,i)=>{
+  button.setAttribute('aria-current',i===stageIndex?'step':'false');
+ });
+ byId('previous').disabled=stageIndex===0;byId('next').disabled=stageIndex===steps.length-1;
+ byId('skip').hidden=mode!=='bob'||stageIndex!==0;
+ byId('handoff').hidden=mode!=='pool'||stageIndex!==steps.length-1;
+ byId('story').textContent=(missedB&&step===receiveBlock?'Bob 此前没见过 B。':'')+step.text;
+ const explanation=byId('step-explanation');
+ explanation.replaceChildren();
+ if(step.explain) explanation.append(byId('explain-'+step.explain).content.cloneNode(true));
+ byId('candidateState').hidden=mode!=='solo';
+ if(mode==='solo'){
+  byId('poolState').textContent=step.adopted?'B 已清出':step.pool?'B 占用 U':'无 B';
+  byId('candidate').textContent=step.outcome??'尚未组模板';
+  byId('coins').textContent=step.adopted?'B:0 · 60,000 聪，B:1 · 39,000 聪':'U · 100,000 聪';
+  byId('observer').textContent='⑪ Bob 钱包';
+  byId('result').textContent=step.adopted?'60,000 聪 · 1 次确认':step.pool?'60,000 聪 · 0 次确认':'尚未记录 B';
+ }else if(mode==='reorg'){
+  const [poolState,coins,result]=step.states;
+  byId('poolState').textContent=poolState;byId('coins').textContent=coins;byId('result').textContent=result;
+  byId('observer').textContent='⑪ Bob 钱包';
+  byId('tip').textContent='当前活动链尖 · '+step.tip;
+  document.querySelectorAll('[data-block]').forEach(g=>g.classList.toggle('current',g.dataset.block===step.tip));
+ }else{
+ byId('poolState').textContent=step.adopted?'无 B':step.pool&&!missedB?'B 占用 U':'无 B';
+ byId('coins').textContent=step.adopted?'B:0 · 60,000 聪，B:1 · 39,000 聪':'U · 100,000 聪';
+ byId('observer').textContent=mode==='bob'?'⑪ Bob 钱包':'挖矿方';
+ byId('result').textContent=mode==='pool'?(step.outcome||(step===connect?'正在验块':step===adopt?'K 已采用':'尚未组块')):stageIndex===bob.length-1?'60,000 聪 · 1 次确认':stageIndex>=3&&!missedB?'60,000 聪 · 0 次确认':'尚未记录 B';
+ }
+ const active=new Set();
+ edges.forEach(([from,to],i)=>{
+  const key=from+'-'+to;
+  const on=step.edges?.includes(key);
+  const group=edgeNodes[i];
+  const undoRead=mode==='reorg' && stageIndex===2 && key==='7-9';
+  group.querySelector('path').setAttribute('d',undoRead?'M1060 426V342':edges[i][3]);
+  group.querySelector('text').textContent=step.labels?.[key] ?? edges[i][6];
+  group.classList.toggle('off-path',!steps.some(s=>s.edges?.includes(key)));
+  group.classList.toggle('current-edge',!!on);
+  group.classList.toggle('muted',!on);
+  if(on){active.add(from);active.add(to);}
+ });
+ wires.forEach(([id,d,label,x,y,core],i)=>{
+  const on=step.wires?.includes(id);
+  wireGroups[i].classList.toggle('off-path',!steps.some(s=>s.wires?.includes(id)));
+  wireGroups[i].classList.toggle('current-edge',!!on);
+  wireGroups[i].classList.toggle('muted',!on);if(on&&core)active.add(core);
+ });
+ actorGroups.forEach((g,i)=>g.classList.toggle('muted',!step.outside?.includes(actors[i][0])));
+ moduleNodes.forEach((g,i)=>{g.classList.toggle('muted',!active.has(i+1));g.classList.remove('selected');g.setAttribute('aria-pressed','false');});
+ showTopics(null);heading.textContent=initial[0];description.textContent=initial[1];links.replaceChildren();reset.hidden=true;
+}
+const teachingFocus={
+ arch:[3,4,7,8],
+ bob:[4,7,10,11],
+ solo:[4,7,'template','cpu'],
+ pool:[4,'template','jobs','asic'],
+ reorg:[6,7,8,9]
+};
+function setView(view,index=0){
+ const focus=teachingFocus[view];
+ moduleNodes.forEach((node,i)=>node.classList.toggle('core',focus.includes(modules[i][0])));
+ actorGroups.forEach((node,i)=>node.classList.toggle('core',focus.includes(actors[i][0])));
+ mode=view;stageIndex=index;missedB=false;document.body.dataset.mode=view;
+ const walking=view!=='arch',isPool=view==='pool',isSolo=view==='solo';
+ actors.forEach(([id,x,label],i)=>{
+  const group=actorGroups[i];
+  group.style.display=(isSolo?['template','cpu'].includes(id):id!=='cpu')?'':'none';
+  group.setAttribute('transform',isSolo&&id==='template'?'translate(602 -153)':'translate(0 0)');
+  const name=isSolo&&id==='template'?'Core · 模板构造':label;
+  group.querySelector('text').textContent=name;group.setAttribute('aria-label',name+'知识目录');
+ });
+ document.body.classList.toggle('walking',walking);
+ document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===view));
+ byId('fork').hidden=view!=='reorg';byId('walk').hidden=!walking;mining.style.display=isPool||isSolo?'':'none';
+ byId('map').setAttribute('viewBox','0 0 1220 '+(isPool||isSolo?780:627));
+ byId('owner').textContent=(isPool?'矿池的全节点':'Bob 的电脑')+'　/　Bitcoin Core v29.0 同一进程';
+ reset.textContent=walking?'返回当前步骤':'返回全图';
+ if(!walking){focusModule(null);return;}
+ byId('stage-list').replaceChildren(...flows[view].map((step,i)=>{
+  const button=document.createElement('button');
+  button.type='button';
+  button.textContent=(i+1)+' · '+step.title;
+  button.onclick=()=>goTo(i);
+  return button;
+ }));
+ showStage();
+}
+function goTo(index){
+ stageIndex=index;if(mode==='bob'&&index<bob.indexOf(receiveBlock))missedB=false;showStage();
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+byId('previous').onclick=()=>goTo(stageIndex-1);byId('next').onclick=()=>goTo(stageIndex+1);
+byId('skip').onclick=()=>{missedB=true;goTo(bob.indexOf(receiveBlock));};
+byId('handoff').onclick=()=>setView('bob',bob.indexOf(receiveBlock));
+setView('arch');
+
+function setLessonTheme(mode) {
+  const light = mode === 'light';
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  const button = document.getElementById('theme');
+  button.textContent = light ? '切换深色' : '切换浅色';
+  // Carry the setting even when file URLs have isolated storage.
+  for (const link of document.querySelectorAll('.course-links a, a[data-lesson]')) {
+    const url = new URL(link.href);
+    url.searchParams.set('theme', document.documentElement.dataset.theme);
+    link.setAttribute('href', url.pathname.split('/').pop() + url.search + url.hash);
+  }
+}
+let lessonTheme = new URLSearchParams(location.search).get('theme');
+if (!['light', 'dark'].includes(lessonTheme)) {
+  try { lessonTheme = localStorage.getItem('btc-course-theme') || localStorage.getItem('btc-full-node-theme') || localStorage.getItem('btc-wallet-theme'); } catch {}
+}
+setLessonTheme(lessonTheme);
+document.getElementById('theme').onclick = () => {
+  setLessonTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  const url = new URL(location.href);
+  url.searchParams.set('theme', document.documentElement.dataset.theme);
+  try { history.replaceState(null, '', url); } catch {}
+  try { localStorage.setItem('btc-course-theme', document.documentElement.dataset.theme); } catch {}
+};
+</script>
+<script src="知识卡片/术语引用.js"></script></main></body></html>

@@ -1,0 +1,1239 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitcoin 课程知识卡</title><style>
+:root{color-scheme:dark;font:17px/1.8 system-ui,sans-serif;background:#202328;color:#edf0f5}
+body{max-width:52rem;margin:auto;padding:clamp(1rem,4vw,3rem)}
+article{display:none;overflow-wrap:anywhere}article:target{display:block}
+main:has(article:target) nav{display:none}a{color:#99d9ed;text-underline-offset:3px}
+h1,h2,h3{line-height:1.35}h1{font-size:clamp(1.6rem,4vw,2.25rem)}
+h2{margin-top:2rem;font-size:1.35rem}p,ul,ol{margin-block:.9rem}
+pre,table{background:#30343b}pre{overflow:auto;padding:1rem;border:1px solid #4b515c;border-radius:6px}
+code{font: .93em ui-monospace,monospace}table{display:block;overflow:auto;border-collapse:collapse}
+th,td{padding:.5em .65em;border:1px solid #4b515c;text-align:left;vertical-align:top}
+</style></head><body><main>
+<nav><h1>Bitcoin 课程知识卡</h1><ul><li><a href="#card-01">01-哈希与交易标识</a></li><li><a href="#card-02">02-私钥与压缩公钥</a></li><li><a href="#card-03">03-HD钱包与扩展密钥</a></li><li><a href="#card-04">04-从地址到收款脚本</a></li><li><a href="#card-05">05-P2WPKH与见证栈</a></li><li><a href="#card-05a">05a-见证的数据结构</a></li><li><a href="#card-06">06-UTXO与完整交易</a></li><li><a href="#card-07">07-选币找零与费率</a></li><li><a href="#card-08">08-BIP143签名摘要</a></li><li><a href="#card-09">09-ECDSA签名与见证装配</a></li><li><a href="#card-10">10-P2P邻居与请求调度</a></li><li><a href="#card-11">11-内存池冲突与替换</a></li><li><a href="#card-12">12-Merkle包含证明与见证承诺</a></li><li><a href="#card-13">13-候选块与区块奖励</a></li><li><a href="#card-14">14-PoW与主网难度调整</a></li><li><a href="#card-15">15-矿池作业与份额</a></li><li><a href="#card-15a">15a-Bob出块</a></li><li><a href="#card-16">16-同时出块与分支选择</a></li><li><a href="#card-17">17-链状态与本地记录</a></li><li><a href="#card-18">18-时间锁与规则激活</a></li><li><a href="#card-19">19-聪与BTC</a></li><li><a href="#card-20">20-钱包与全节点</a></li><li><a href="#card-21">21-挖矿激励</a></li></ul></nav>
+<article id="card-01">
+<h1>01 · 哈希函数、原始字节与交易标识</h1>
+<p>哈希函数把任意长度的字节串映射成固定长度的摘要。同一种算法处理完全相同的字节，总会得到同一个结果。十六进制只是字节的书写方式。SHA-256 输出 32 字节，RIPEMD-160 输出 20 字节。双 SHA-256 把第一次的 32 个原始字节再哈希一次；HASH160 把 SHA-256 的结果交给 RIPEMD-160。</p>
+<p>交易需要一个任何节点都能独立计算的名字。txid 用不含见证的基本序列化计算双 SHA-256，wtxid 用含见证的完整序列化计算。没有见证时两者相同。引用输出用 txid 和输出序号；按浏览器显示值对照原始字节时还要认清字节顺序。</p>
+<p><strong>字节序。</strong> 字节序描述多字节数值的排列顺序。节点哈希的是协议规定的字节串。常见工具显示 txid 时，使用与交易输入中前序哈希字段相反的字节顺序；核对时要先统一表示。</p>
+<p><strong>输入与输出。</strong> 用三个原始字节 <code>61 62 63</code> 计算 SHA-256，结果是 <code>ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad</code>。计算 txid 时换成交易的基本序列化字节，先取 SHA-256，再对所得的 32 字节取 SHA-256，最后反转摘要的字节顺序得到常用显示值。</p>
+<p><strong>英文术语</strong>　SHA-256（Secure Hash Algorithm 256-bit）、RIPEMD-160（RACE Integrity Primitives Evaluation Message Digest，160 位）、txid（transaction identifier，交易标识）、wtxid（witness transaction identifier，含见证交易标识）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-01">复算两种交易标识</a> · <a href="https://bips.dev/141/#transaction-id">BIP141</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/sha256">Block Zero · SHA-256</a>　输入文本或文件，查看摘要。</li>
+<li><a href="https://btcvisual.com/experiments/hash">BTCVisual · 哈希实验</a>　用中文界面观察输入字节与哈希结果。</li>
+</ul>
+</article>
+<article id="card-02">
+<h1>02 · 私钥、公钥与压缩公钥</h1>
+<p>secp256k1 是 SEC 2（Standards for Efficient Cryptography 2）规定的曲线名称。在这条曲线上，私钥是从 1 到 n−1 的整数 d，n 是基点 G 的阶。公钥是曲线上的点 Q = dG。压缩公钥用 33 个字节表示同一个点：首字节 02 或 03 标明 y 的奇偶性，其余 32 字节保存 x 坐标。</p>
+<p>这种对应关系把授权与核验分开。控制私钥的人可以签名，别人拿公钥即可验签；从公钥逆推出随机私钥在实践中不可行。压缩编码让钱包和节点用更少字节传递同一个点。</p>
+<p><strong>编码一把公钥。</strong> 取公开演算值 d = 2，则 Q = G + G。在有限域中倍点，斜率为 3x²/(2y)，新横坐标为斜率² − 2x，新纵坐标为斜率 × (x − 新横坐标) − y，各步模 p。此点的 y 为偶数，因此编码为 <code>02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5</code>。首字节之后的 32 字节就是横坐标。</p>
+<p><a href="#card-example-02">用公开小整数演算公钥</a> · <a href="https://www.secg.org/sec2-v2.pdf">Standards for Efficient Cryptography 2 (SEC 2)</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/key-generation">Block Zero · 密钥生成</a>　观察随机比特、私钥、公钥与地址的生成过程。</li>
+<li><a href="https://karpathy.github.io/2021/06/21/blockchain/">Karpathy · Python 椭圆曲线运算</a>　对照点加法、标量乘法与公钥编码；文中的地址示例使用传统 P2PKH。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/p2p/public-key/index.html">廖雪峰 · 公钥</a>　用中文图解对照私钥和公钥的关系。</li>
+<li><a href="https://learnmeabitcoin.com/technical/keys/public-key/">Learn Me A Bitcoin · Public Key</a>　对照椭圆曲线点和压缩公钥的表示。</li>
+</ul>
+</article>
+<article id="card-03">
+<h1>03 · 分层确定性钱包与扩展密钥</h1>
+<p>分层确定性钱包（HD 钱包）用一份种子建立一棵密钥树。BIP32 的每个树节点都有密钥与链码；两者合在一起构成派生下一层所需的核心材料。一条路径记录从根到这个位置所经过的子编号。采用 BIP39 的钱包可用助记词和可选口令得到种子。</p>
+<p>钱包可以为不同付款给出不同的收款地址，并从同一根材料重建这些密钥。收款和找零可以各用一个分支。普通派生允许观察钱包用扩展公钥生成子公钥；硬化派生需要父级私钥材料。恢复时还要知道钱包采用的派生路径和脚本类型。</p>
+<p><strong>种子与密钥的区别。</strong> 种子是生成根节点的起点。BIP32 从种子计算出主私钥和主链码。一个普通私钥足以算出自己的公钥，扩展私钥还包含继续派生所需的链码。Bech32 地址则来自某个子公钥对应的收款条件，是可以交给付款人的信息。</p>
+<p><strong>一层普通子私钥如何计算。</strong> 输入父私钥 k、32 字节父链码 c、4 字节大端下标 i。计算 <code>HMAC-SHA512(key=c, data=压缩父公钥 || i)</code>，将 64 字节结果切为左右两半 L、R。左半按大端解释为整数；在有效情形，子私钥等于 (L + k) mod n，子链码等于 R。硬化派生将消息前段换成 <code>00 || 32字节父私钥</code>，下标从 2³¹ 起。L ≥ n 或所得子私钥为零时须改用下一下标。扩展密钥的序列化共有 78 字节，依次为版本 4、深度 1、父指纹 4、子编号 4、链码 32、密钥数据 33。</p>
+<p><strong>英文术语</strong>　HD（Hierarchical Deterministic，分层确定性）、HMAC-SHA512（Hash-based Message Authentication Code using SHA-512）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-03">从助记词派生收款地址与找零地址</a> · <a href="https://bips.dev/39/">BIP39</a></p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/32/#test-vector-1">BIP32</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/seed-walkthrough">Block Zero · Seed Walkthrough</a>　用公开演示词观察种子、主密钥、路径与子地址。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/hd-wallet/hierarchy/index.html">廖雪峰 · 分层派生</a>　沿密钥树对照账户、收款分支和找零分支。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/hd-wallet/mnemonic/index.html">廖雪峰 · 助记词</a>　查看随机数、校验位和词序列的对应关系。</li>
+</ul>
+</article>
+<article id="card-04">
+<h1>04 · 收款地址、见证程序与输出脚本</h1>
+<p>输出脚本（scriptPubKey）是一项交易输出携带的花费条件。以原生 P2WPKH 为例，脚本由版本 0 和一个 20 字节的公钥哈希组成，这 20 字节称为见证程序。Bech32 是编码格式的名称。Bech32 地址将网络、版本和程序编码为带校验和的文字。找零脚本是付款钱包为自己控制的剩余金额准备的输出脚本。</p>
+<p>收款人需要把花费条件可靠地交给付款人。地址便于展示、扫码和检查常见录入错误；付款钱包解码后，把准确的脚本字节和金额写进交易。全节点日后可按这个条件验证花费。</p>
+<p><strong>实际脚本。</strong> Bob 的收款公钥做 HASH160 后得到 <code>06afd46bcdfd22ef94ac122aa11f241244a37ecc</code>。前置版本 0 的操作码 <code>00</code> 和压入 20 字节的指令 <code>14</code> 即是输出脚本。编码地址时，将这 20 字节从 8 位组转换为 5 位组，前置见证版本，配上主网前缀 bc 和 6 个 Bech32 校验字符，得到 <code>bc1qq6hag67dl53wl99vzg42z8eyzfz2xlkvxechjp</code>。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-04">从地址还原 B:0，辨认 B:1 的找零</a> · <a href="https://bips.dev/173/#segwit-address-format">BIP173</a></p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/350/#addresses-for-segregated-witness-outputs">BIP350</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/key-generation">Block Zero · 公钥到 Bech32 地址</a>　沿同一把演示公钥查看收款地址的生成。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch04_keys.adoc">Mastering Bitcoin · Keys and Addresses</a>　对照公钥哈希、地址编码与网络前缀。</li>
+</ul>
+</article>
+<article id="card-05">
+<h1>05 · P2WPKH 与脚本执行</h1>
+<p>Bitcoin Script 用操作码和数据表达并检验花费条件。P2WPKH（Pay to Witness Public Key Hash）是一种见证版本 0 的输出类型，它在输出脚本中给出一个 20 字节公钥哈希。花费原生 P2WPKH 时，输入的 scriptSig 为空，见证携带签名和公钥。</p>
+<p>这里缓存的是输出脚本（scriptPubKey），即交易输出中规定将来怎样花这笔钱的字节。Bob 的钱包用 B:0 的完整脚本查索引，命中就能识别书款；将来花费时，再从对应派生位置查找密钥或签名器。以后花费时，节点核对公钥哈希并验证签名，由此判断这次花费是否得到授权。识别脚本和实际签署花费可以由不同设备负责。</p>
+<p><strong>从栈到判定。</strong> 节点从旧输出读出 <code>00 14 &lt;20字节哈希&gt;</code>，要求输入的见证恰有签名和公钥两项。执行相当于 <code>OP_DUP OP_HASH160 &lt;20字节哈希&gt; OP_EQUALVERIFY OP_CHECKSIG</code> 的检查：复制栈顶公钥、求其哈希、与旧输出承诺比较，最后用公钥检查针对本次花费的签名。任何必需检查失败都无法花费该输出。</p>
+<p><strong>英文术语</strong>　BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-05">逐步执行脚本并检查归属</a> · <a href="https://bips.dev/141/#witness-program">BIP141 见证程序</a></p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/143/#native-p2wpkh">BIP143 官方向量</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/script-playground">Block Zero · Script Playground</a>　逐条执行 P2PKH 模板，观察公钥哈希比较和验签时的栈；原生 P2WPKH 的初始数据来自见证。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch07_authorization-authentication.adoc">Mastering Bitcoin · 授权脚本</a>　对照输出条件和花费时提供的授权数据。</li>
+</ul>
+</article>
+<article id="card-05a">
+<h1>05a · 输入见证的数据结构</h1>
+<p>见证（witness）是供节点核验花费条件的数据。每个输入对应的有序字节串列表称为见证栈（witness stack）。输入决定它要花哪个旧输出，旧输出的脚本决定见证需要提供哪些数据。对于原生 P2WPKH，列表第一项是附签名模式字节的签名，第二项是公钥。</p>
+<p>验证者需要拿到满足旧输出条件的材料。把这些材料独立编码后，节点可以验证花费，并分别计算基本交易标识 txid 和覆盖见证的 wtxid。交易的输入输出关系依然可以用基本交易标识引用。</p>
+<p><strong>列表怎样编码。</strong> 每个输入先写见证项数，再按顺序写每项的字节长度和内容。项数、长度都是 CompactSize。P2WPKH 两项中的签名证明授权，公钥用于验签并与旧输出的公钥哈希比对。</p>
+<p><strong>Core 表示与线路格式。</strong> Bitcoin Core v29.0 的 <code>CScriptWitness::stack</code> 是 <code>std::vector&lt;std::vector&lt;unsigned char&gt;&gt;</code>。外层下标选中一项，内层存该项的原始字节。公开 BIP143 向量中的一个输入编码为 <code>02 | 47 | 70字节DER签名及1字节模式 | 21 | 33字节公钥</code>；02、47、21 均为十六进制。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、DER（Distinguished Encoding Rules，可辨别编码规则）、txid（transaction identifier，交易标识）、wtxid（witness transaction identifier，含见证交易标识）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-05a">拆读见证的长度、次序与字节</a> · <a href="https://bips.dev/141/#transaction-id">BIP141 的 Transaction ID 与 Witness program 两节</a></p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/script/script.h#L541-L545">Bitcoin Core v29.0 的 CScriptWitness 定义</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/segwit/">SatoshiBench · SegWit</a>　对照见证所占比例、交易重量与费用。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/segwit/index.html">廖雪峰 · 隔离见证</a>　查看签名数据所在位置和两种交易标识的区别。</li>
+<li><a href="https://learnmeabitcoin.com/technical/transaction/witness/">Learn Me A Bitcoin · Witness</a>　按输入读见证列表的元素与长度。</li>
+</ul>
+</article>
+<article id="card-06">
+<h1>06 · UTXO 记账模型：输出、输入与未花费集合</h1>
+<p>**UTXO（Unspent Transaction Output，未花费交易输出）**是一笔已有交易创建、截至所观察的链尖仍未被消费的输出。它有一个可被下一笔交易引用的位置、一笔整数金额，以及一段规定花费条件的脚本。Bitcoin Core v29.0 用下面两个对象表达这项记录：用 <strong>COutPoint</strong> 查哪一项，用 <strong>Coin</strong> 保存查到的内容。</p>
+<table>
+<thead>
+<tr>
+<th>所属对象</th>
+<th>Core 字段与类型</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>查找键 COutPoint</td>
+<td><code>hash: Txid</code></td>
+<td>创建该输出的交易标识（transaction identifier，txid），32 字节</td>
+</tr>
+<tr>
+<td>查找键 COutPoint</td>
+<td><code>n: uint32_t</code></td>
+<td>该交易输出数组中从 0 开始的下标</td>
+</tr>
+<tr>
+<td>记录 Coin → out: CTxOut</td>
+<td><code>out.nValue: CAmount</code></td>
+<td>有符号 64 位整数，以聪为单位；有效输出的金额须在共识允许范围内</td>
+</tr>
+<tr>
+<td>记录 Coin → out: CTxOut</td>
+<td><code>out.scriptPubKey: CScript</code></td>
+<td>可变长脚本字节，规定花费这项钱要满足的条件</td>
+</tr>
+<tr>
+<td>记录 Coin</td>
+<td><code>fCoinBase: unsigned int（1 位）</code></td>
+<td>创建它的交易是否为 coinbase，花费时用于检查成熟期</td>
+</tr>
+<tr>
+<td>记录 Coin</td>
+<td><code>nHeight: uint32_t（31 位）</code></td>
+<td>创建输出的区块高度，也用于成熟期和相对时间锁检查</td>
+</tr>
+</tbody>
+</table>
+<p>前两个字段来自引用位置。中间两个字段来自原交易输出。最后两个字段由节点处理所在区块时补上。后来花费它的交易只需在输入的 <code>prevout</code> 写出同一对键，节点即可取得金额和脚本进行验证。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/primitives/transaction.h">交易类型定义</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/coins.h">Coin 定义</a></p>
+<h3>读一条真实记录：主网高度 170 的第 0 号付款输出</h3>
+<p>下面按 Core 的字段重建<strong>刚接入高度 170 时</strong>的历史状态。它来自一笔 10 BTC 的主网付款，与 Alice 的 60,000 聪书款是两个样例。交易标识按区块浏览器的显示顺序书写。</p>
+<pre class="text"><code>COutPoint
+  hash = f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16
+  n    = 0
+Coin
+  out.nValue       = 1000000000
+  out.scriptPubKey = 4104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac
+  fCoinBase        = 0
+  nHeight          = 170</code></pre>
+<p>在原交易中，这个输出依次写作金额 <code>00 ca 9a 3b 00 00 00 00</code>、脚本长度 <code>43</code>、上面的 67 字节脚本。金额按小端读为十亿聪。脚本开头的 <code>41</code> 指示压入 65 字节公钥，末尾 <code>ac</code> 是 OP_CHECKSIG（检查签名）。这种条件称为 <strong>P2PK（Pay to Public Key，支付到公钥）</strong>。换到书款案例，B:0 的金额是 60,000 聪，脚本是 22 字节的 P2WPKH（Pay to Witness Public Key Hash），Core 用同样的字段保存它。<a href="https://learnmeabitcoin.com/explorer/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">高度 170 付款的原始交易</a></p>
+<h3>节点怎样保存和更新这条记录？</h3>
+<p>内存里可以按上述对象理解。写入 chainstate 的 LevelDB 时，Core 将键编码为前缀 <code>0x43</code>、序列化交易标识、按 Core VARINT 编码的输出编号。值先编码 <code>2 × nHeight + fCoinBase</code>（此例为 340），再写压缩的金额与脚本。原交易的输出长度使用 CompactSize；数据库键值采用自己的编码。它们表达相同的输出，字节布局不同。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/txdb.cpp">CoinEntry 数据库键</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/compressor.h">输出压缩格式</a></p>
+<p>普通交易接块时，节点在父链状态中按每个输入的 prevout 查找 Coin，核对金额、脚本及花费资格，在工作视图中消费旧 Coin，再按新交易的 txid 和各输出下标加入可进入 UTXO 集的新 Coin。消费会让旧键从可用集合中消失；历史交易本身仍然存在。</p>
+<p><strong>余额怎样表示。</strong> 钱包找出脚本属于自己跟踪范围的输出，再按花费状态和确认类别汇总金额。余额是查询结果。假设 Alice 只有一项 100,000 聪的输出，要付 60,000 聪，她可以消费整项，创建 60,000 聪书款与 39,000 聪找零，差额 1,000 聪为手续费。</p>
+<p><strong>英文术语</strong>　BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-06">读取一笔完整交易并复算字节</a> · <a href="https://bips.dev/143/#native-p2wpkh">BIP143 Native P2WPKH</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/utxo-visualizer">Block Zero · UTXO Visualizer</a>　按 txid 载入交易，点输入追到旧输出，点已花费的输出查看后续花费。</li>
+<li><a href="https://mempool.space/zh/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">mempool.space · 高度 170 的付款</a>　对照真实输入 50 BTC 与两个输出 10 BTC、40 BTC。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/utxo/index.html">廖雪峰 · UTXO 模型</a>　用中文例子对照旧输出、找零和可用余额。</li>
+<li><a href="https://jeiwan.net/posts/building-blockchain-in-go-part-6/">Building Blockchain in Go · Transactions 2</a>　对照教学链 UTXO 集的查找和更新，实现细节以 Core 版卡片为准。</li>
+</ul>
+</article>
+<article id="card-07">
+<h1>07｜钱包从哪些旧输出凑出书款？</h1>
+<p>选币发生在签名前，由 Alice 的钱包做决定。Bob 的节点检查交易是否有效，无须重走 Alice 的选币算法。</p>
+<p>钱包列出能花的旧输出，逐个读取金额、锁定脚本、确认情况及本地锁定状态。每增加一个输入，交易通常会变大。钱包因此可按“面值减去花此输入所需费用”的有效价值来比较候选项。找零还要考虑现在新建一个输出以及以后花掉它的成本。</p>
+<p>**Branch and Bound（分支限界搜索）**会尝试“选这个、跳过这个”两种分支，寻找能付清目标且多出金额不超过找零成本的组合，争取省去找零输出。若当前组合已经太多，或把余下候选都加上也不够，这条路就可以提前结束。例：有效价值为 6、4、3，目标为 7，容许多付 0。选 6 后再选 4 会超额，退回后尝试 4 加 3，恰好付款。实际 Core 以输出组为候选，设搜索次数上限，并会比较其他策略。示例交易 B 已给定一个输入和两个输出，不能据此断言 B 是这个算法选出来的。</p>
+<p><strong>把费用落到账上。</strong> B 花掉 U 的 100,000 聪，输出 60,000 和 39,000 聪。输入总额减输出总额得到 1,000 聪手续费。按字节计算费率时，先取去见证序列化大小 S 和完整序列化大小 T，重量为 3S + T（WU），虚拟大小为重量除以 4 并向上取整。若两份大小为 113 和 223 字节，则重量为 562 WU、虚拟大小为 141 vB，1,000 聪相当于约 7.09 聪/vB。这组长度是示范条件；B 的签名字节未给全，不能从金额推出实际大小。</p>
+<p>选币时，用输入总额减去付款和预计费用得到找零。例如 100,000 − 60,000 − 1,200 = 38,800 聪。</p>
+<p><strong>英文术语</strong>　vB（virtual byte，虚拟字节）、WU（weight unit，重量单位）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/wallet/coinselection.cpp#L47-L79">Core v29.0 选币实现</a> · <a href="https://bips.dev/141/#block-size">BIP141 · Block size</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://bitcoincore.academy/coin-selection.html">Bitcoin Core Onboarding · Coin selection</a>　阅读钱包如何选择候选输出和处理找零。</li>
+<li><a href="https://blockzerobtc.com/tools/fee-market">Block Zero · Fee Market</a>　查看费率直方图，区分交易绝对费用与每虚拟字节费率。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch09_fees.adoc">Mastering Bitcoin · Transaction Fees</a>　对照重量、虚拟大小与费用计算。</li>
+</ul>
+</article>
+<article id="card-08">
+<h1>08 · BIP143 签名摘要与 SIGHASH_ALL</h1>
+<p>签名摘要是从本次花费指定字段计算出的 32 字节值。BIP143 定义了见证版本 0 签名时的字段顺序与哈希算法。scriptCode 表达本输入使用的脚本条件，另一个字段给出正在花费的旧输出金额。SIGHASH_ALL 是 Bitcoin 的签名哈希类型（signature hash type）常量，值为 0x01，覆盖全部新输出。</p>
+<p>签名者与验证者需要从同一交易重建完全一致的消息。规定字节编码和签名范围后，收款金额或收款脚本一旦被改动，原先覆盖它们的签名便无法通过检查。</p>
+<p><strong>普通 SIGHASH_ALL 的序列化顺序。</strong> 对见证版本 0 且未设 ANYONECANPAY 的输入，依次拼接版本、hashPrevouts、hashSequence、当前 outpoint、带长度的 scriptCode、旧输出金额（8 字节小端）、当前 sequence、hashOutputs、锁定时间和签名模式（4 字节小端）。三个中间哈希分别由所有输入引用、所有输入序号、所有序列化新输出做双 SHA-256 得到；最后对整串再做双 SHA-256。本例模式在摘要末尾编码为 <code>01000000</code>，在见证签名之后编码为 <code>01</code>。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、SHA-256（Secure Hash Algorithm 256-bit）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-08">复算签名摘要和中间哈希</a> · <a href="https://bips.dev/143/#native-p2wpkh">BIP143 · Native P2WPKH</a></p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/134/">BIP134 · Flexible Transactions</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/sighash/">SatoshiBench · SIGHASH flags</a>　选择 ALL、NONE 或 SINGLE，观察签名覆盖的输入和输出。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch08_signatures.adoc">Mastering Bitcoin · Digital Signatures</a>　对照签名范围与序列化摘要。</li>
+</ul>
+</article>
+<article id="card-09">
+<h1>09 · ECDSA 签名、验证与 DER 编码</h1>
+<p>ECDSA 是一种公钥数字签名算法。签名端用私钥、消息摘要和一次性标量 k 得到两个整数 r 和 s。验证端用公钥、同一摘要以及 r、s 检查签名。DER 规定这对整数如何编码成字节。</p>
+<p>付款人需要授权一笔指定的花费，同时让任意节点独立核验。P2WPKH 将 DER 签名附上签名模式字节，并把它与公钥装入见证；私钥只在签名端使用。</p>
+<p><strong>签名与验签的计算。</strong> 设基点为 G、阶为 n，私钥 d 的公钥为 Q = dG，摘要解释为整数 z。签名端计算 R = kG，取 r = x(R) mod n，再求 s = k⁻¹(z + rd) mod n，r 或 s 为零须重选 k。验签端先检查 r、s 的范围，再算 w = s⁻¹ mod n 和点 X = (zw mod n)G + (rw mod n)Q。X 不是无穷远点且 x(X) mod n = r 时通过。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、ECDSA（Elliptic Curve Digital Signature Algorithm，椭圆曲线数字签名算法）、DER（Distinguished Encoding Rules，可辨别编码规则）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-09">验签并拆读官方见证样例</a> · <a href="https://bips.dev/143/#native-p2wpkh">BIP143 · Native P2WPKH</a></p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/66/#der-encoding-reference">BIP66 · DER encoding reference</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/sha256">Block Zero · Signatures</a>　用演示密钥签署消息并核验；消息签名演示和 BIP143 交易摘要使用不同的消息构造方式。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/p2p/signature/index.html">廖雪峰 · 数字签名</a>　从签名者和验证者两端看私钥、公钥与消息。</li>
+<li><a href="https://karpathy.github.io/2021/06/21/blockchain/">Karpathy · Python 签名实现</a>　阅读签名数对与 DER 编码代码。</li>
+<li><a href="https://learnmeabitcoin.com/technical/cryptography/elliptic-curve/ecdsa/">Learn Me A Bitcoin · ECDSA</a>　对照椭圆曲线点运算、签名和验证公式。</li>
+</ul>
+</article>
+<article id="card-10">
+<h1>10 · P2P 网络与交易中继</h1>
+<p>P2P（点对点）是一种网络组织方式。一个节点维持若干邻居连接，每条连接的两端都可以收发协议消息。交易中继是其中一项工作：节点通告交易标识，缺数据的邻居请求交易，然后按自己的规则检查。</p>
+<p>一笔付款只需先交给一个接入节点，就能沿邻居连接逐跳传播。先通告标识使已经知道它的节点可以省去重复下载，请求调度则帮助节点从多个来源中选择对端。</p>
+<p><strong>一条通告的数据。</strong> 库存项由 4 字节类型和 32 字节哈希组成。节点收到 inv 后，若缺少该对象，就选通告过它的邻居，用 getdata 指定所需项。对方回 tx 消息，节点解析交易、检查后再决定是否中继。支持 BIP339 并协商成功时，可以用 wtxid 标识待取交易。</p>
+<p><strong>英文术语</strong>　P2P（Peer-to-Peer，点对点）、wtxid（witness transaction identifier，含见证交易标识）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-10">追踪通告、请求和交易数据</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/node/txdownloadman_impl.cpp#L164-L215">Core v29.0 下载调度</a></p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/339/">BIP339</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://btcvisual.com/experiments/network">BTCVisual · 网络传播实验</a>　切换节点连接，观察交易通告能到达哪些邻居。</li>
+<li><a href="https://developer.bitcoin.org/devguide/p2p_network.html">Bitcoin 开发指南 · P2P Network</a>　核对模拟图背后的节点发现、通告和请求流程。</li>
+<li><a href="https://cs251.stanford.edu/lectures/lecture2.pdf#page=8">Stanford CS251 · 交易传播图</a>　沿节点之间的连线跟踪交易传播。</li>
+</ul>
+</article>
+<article id="card-11">
+<h1>11｜B 和 C 都想花 U，Bob 的节点记哪一笔？</h1>
+<p>内存池是每个节点自己维护的待确认交易集合。接纳 B 表示这个节点愿意暂存它，Bob 的钱包可以显示「待确认 60,000 聪」。</p>
+<p>Bob 收到 B，先后要核对交易结构、输入能否在当前链或本池父交易中找到、金额、时间约束及脚本与签名。单笔入池还受本地中继费率、池满时的动态门槛以及其他策略制约。接纳后，Core 的 mapTx 保存交易条目等信息；mapNextTx 用完整旧输出引用（前序 txid、输出编号）查池内谁正在花它。此时能查到 U → B，链上已确认 UTXO 集里的 U 仍在。</p>
+<p>竞争交易 C 也引用 U，节点便找到与它直接冲突的 B。Core v29.0 对普通单笔替换已不要求原交易预先发出可替换信号。它仍检查 C 的费率是否超过各直接冲突者、总费用是否覆盖被逐出交易及其后代、增量费用是否足够支付新交易带宽等；对新增未确认输入和逐出数量也有限制。测试假设 B 没有后代，C 为 140 vB，本机增量中继费率为 1 聪/vB。B 已付 1,000 聪，则光是增量费用一项就要求 C 至少付 1,140 聪；达到这个金额仍须通过其他检查。</p>
+<table>
+<thead>
+<tr>
+<th>Bob 观察到的事件</th>
+<th>本地池中的 B、C</th>
+<th>已确认 UTXO 视图</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>接纳 B</td>
+<td>B 占用 U</td>
+<td>U 仍可按 outpoint 查到</td>
+</tr>
+<tr>
+<td>接纳满足替换条件的 C</td>
+<td>移除 B 和依赖它的后代，改为 C 占用 U</td>
+<td>U 仍在</td>
+</tr>
+<tr>
+<td>验证并连接含 B 的有效块 K</td>
+<td>清掉已确认的 B（若在池），移除与 B 冲突的 C 及其后代（若在池）</td>
+<td>花掉 U，新增 B:0、B:1（假定块内无后续花费）</td>
+</tr>
+</tbody>
+</table>
+<p>在这个例子中，费用 1,139 聪比增量门槛少 1 聪，替换失败。符合共识的 C 仍有可能由矿工收入区块。</p>
+<p><strong>英文术语</strong>　UTXO（Unspent Transaction Output，未花费交易输出）、txid（transaction identifier，交易标识）、vB（virtual byte，虚拟字节）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/doc/policy/mempool-replacements.md">v29.0 替换策略</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/txmempool.cpp#L600-L636">v29.0 内存池实现</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/mempool/">SatoshiBench · 模拟内存池</a>　观察传播、等待、替换与清理的模拟过程。</li>
+<li><a href="https://satoshibench.com/mempool/">SatoshiBench · 实时内存池</a>　按费率区间观察该站节点当前看到的未确认交易。</li>
+<li><a href="https://bitfeed.live/">Bitfeed · 待确认交易与新区块</a>　看交易进入观察节点、随后被区块收录的动态图。</li>
+<li><a href="https://github.com/bitfeed-project/bitfeed/wiki/FAQ">Bitfeed · 图例说明</a>　区分图中面积按交易金额或空间占用绘制的模式。</li>
+</ul>
+</article>
+<article id="card-12">
+<h1>12 · Merkle 树、树根与包含证明</h1>
+<p>Merkle 树将一组有序数据的哈希逐层配对，拼接并哈希，最终得到一个根。Bitcoin 的普通交易树以块内交易的 txid 为叶，根写入区块头。包含证明由目标叶的位置和沿途各层的兄弟哈希组成。</p>
+<p>一个区块头需要承诺整块的交易次序和内容。持有区块头的人可以用一条短路径核对某笔交易是否被包含。证明的范围限于包含关系；脚本和输入有效性仍需交易与链状态。含见证的区块还通过 coinbase 承诺另一棵见证树。</p>
+<p><strong>简化支付验证（SPV）。</strong> 轻客户端可以保存和核验区块头，用包含证明确认某笔交易被某个头承诺，再观察这条头链的累计工作量。这个判断依赖客户端获得的链和相应的算力假设。</p>
+<p><strong>三片叶子的计算。</strong> 令 D 表示双 SHA-256，a、b、c 表示按块内次序排列的 32 字节交易哈希。末层为奇数时复制 c，先算 p = D(a || b)、q = D(c || c)，再算根 D(p || q)。证明 b 的包含关系只需提供左兄弟 a、右兄弟 q 及方向。哈希函数的输入是字节拼接。</p>
+<p><strong>英文术语</strong>　SHA-256（Secure Hash Algorithm 256-bit）、SPV（Simplified Payment Verification，简化支付验证）、txid（transaction identifier，交易标识）。</p>
+<p><a href="#card-example-12">用主网高度 170 的数据重建树根</a> · <a href="https://www.thebitcointm.com/block/170">高度 170 的节点数据</a></p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/consensus/merkle.cpp">Core v29.0 Merkle 实现</a> · <a href="https://bips.dev/141/#commitment-structure">BIP141 · Commitment structure</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/merkle-tree/">SatoshiBench · 交互 Merkle 树</a>　载入区块，选一笔交易，沿兄弟哈希路径追到区块头的根。</li>
+<li><a href="https://decentralizedthoughts.github.io/2020-12-22-what-is-a-merkle-tree/">Decentralized Thoughts · Merkle 包含证明</a>　从成员证明图解读懂路径需要哪些哈希。</li>
+</ul>
+</article>
+<article id="card-13">
+<h1>13　矿池在候选块里能给自己写多少钱？</h1>
+<p>候选块是矿池准备拿来尝试 PoW 的一份完整区块方案。矿池选哪些交易属于自己的策略，Bob 会独立检查最终区块里的每一笔交易。</p>
+<p><strong>从 U 算到奖励。</strong> B 花掉 100,000 聪，写出 60,000 和 39,000 聪，剩下的 1,000 聪是手续费。矿池如果把 B 放进 K，可以在块首的一笔特殊交易 coinbase 中多领取 1,000 聪。coinbase 使用一个空前序引用，输入脚本在现行主网高度要以区块高度开头，输出脚本指定领取者。在本课的池化挖矿部署中，领取者可以是矿池，矿工之间的分账按矿池合同另算。</p>
+<table>
+<thead>
+<tr>
+<th>Bob 验 K 时检查什么</th>
+<th>如何核算</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>领取上限</td>
+<td>coinbase 全部输出之和 ≤ 该高度补贴 + 块中全部普通交易的费用。允许少领，多领一聪也会导致整块无效。</td>
+</tr>
+<tr>
+<td>减半</td>
+<td>主网从 50 BTC 起，每 210,000 块将整数聪补贴折半并向下取整。假设 K 高度为 840,000，补贴为 312,500,000 聪，只含 coinbase 和 B 时最多可领 312,501,000 聪。这里的高度是示例高度。</td>
+</tr>
+<tr>
+<td>成熟期</td>
+<td>花费 coinbase 时，花费所在块高度减去创建高度须至少为 100。高度 840,000 的奖励最早可在 840,100 花费。B:0 是普通交易输出，Bob 可以在满足其脚本条件时花费它。</td>
+</tr>
+<tr>
+<td>区块资源</td>
+<td>块重量 = 3 × 去见证序列化字节数 + 完整序列化字节数，最多 4,000,000 WU。签名操作另按脚本类型计成本，每块最多 80,000 成本单位。二者分别检查。</td>
+</tr>
+<tr>
+<td>交易依赖</td>
+<td>若同块内一笔交易花费另一笔的输出，创建输出的交易必须先执行。B 与竞争交易 C 都花 U，无法一起执行成功。</td>
+</tr>
+</tbody>
+</table>
+<p>领取 312,501,001 聪比本例上限多 1 聪，即使区块头哈希达标，整块仍无效。</p>
+<p><strong>英文术语</strong>　PoW（Proof of Work，工作量证明）、BTC（bitcoin，比特币的单位符号）、WU（weight unit，重量单位）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp">Bitcoin Core v29.0 验证代码</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/consensus/consensus.h">Core v29.0 共识常量</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/next-block/">SatoshiBench · 下一块候选交易</a>　观察站点预测的候选集合，与实际挖出的区块区分。</li>
+<li><a href="https://satoshibench.com/blocks/">SatoshiBench · 已挖区块</a>　打开已产生的块，对照高度、交易及区块详情。</li>
+<li><a href="https://satoshibench.com/learn/halving/">SatoshiBench · 补贴减半</a>　按高度对照补贴档位。</li>
+</ul>
+</article>
+<article id="card-14">
+<h1>14 · 工作量证明、网络目标与 nBits</h1>
+<p>工作量证明（Proof of Work，PoW）在 Bitcoin 中要求一个 80 字节区块头的双 SHA-256 哈希按整数解释后小于等于目标 T。nBits 是区块头里对目标的紧凑编码；nonce 是矿工可以改变的一个 4 字节字段。T 越小，随机一次尝试达标的概率越低。</p>
+<p>所有节点都能用很少的计算核对一个达标结果；产生结果通常需要大量尝试。每个有效块按其目标贡献可计算的工作量，节点据此比较有效分支。主网按既定周期调整目标，使长期平均出块间隔趋近十分钟。</p>
+<p><strong>目标与累计工作量。</strong> 给定 T，一次均匀哈希命中的概率是 (T + 1) / 2²⁵⁶。节点按目标为每个有效块计入工作量，再沿父块相加。同一目标下，偶然找到更小的哈希不会多得工作量。</p>
+<p><strong>80 字节头的布局。</strong> 按字节偏移依次是版本 [0,4)、父块哈希 [4,36)、Merkle 根 [36,68)、时间 [68,72)、nBits [72,76)、nonce [76,80)。对合法例值 0x1d00ffff，指数为 0x1d，系数为 0xffff，解得 T = 65535 × 256²⁶。节点对序列化头做双 SHA-256，以小端读出结果整数 h，核对 h ≤ T，并核对 nBits 符合父链规定。</p>
+<p><strong>英文术语</strong>　SHA-256（Secure Hash Algorithm 256-bit）。</p>
+<p><a href="#card-example-14">复算创世块并推导难度调整</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/kernel/chainparams.cpp">Core v29.0 主网参数</a></p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/pow.cpp">Core v29.0 PoW</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/proof-of-work/">SatoshiBench · 区块头 PoW</a>　在浏览器中对区块头进行哈希试算。</li>
+<li><a href="https://blockzerobtc.com/tools/difficulty">Block Zero · 难度周期</a>　把头中的目标与历史难度曲线对照。</li>
+<li><a href="https://btcvisual.com/experiments/mining">BTCVisual · 挖矿实验</a>　用简化目标观察 nonce 搜索。</li>
+</ul>
+</article>
+<article id="card-15">
+<h1>15　普通份额和有效区块，谁收到哪一种？</h1>
+<p>本例采用经典 Stratum V1 作业。份额是矿池按自己设定的较宽松门槛承认的一次计算结果，用于估计贡献、按约定记工。</p>
+<table>
+<thead>
+<tr>
+<th>谁行动</th>
+<th>收到什么，交出什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>矿池模板构造器</td>
+<td>从池方全节点取得父块和可选交易，选入 B，安排交易顺序、coinbase 与见证承诺。保留完整模板以便之后重建 K。</td>
+</tr>
+<tr>
+<td>矿池作业协调器</td>
+<td>为模板分配作业号 J。经典 V1 的订阅结果提供会话 extraNonce1 和 extraNonce2 长度，作业通知再给 coinbase 两段、父块哈希、从 coinbase 到根的 Merkle 分支、版本、nBits、时间和是否清理旧作业。份额难度可由单独消息分配。</td>
+</tr>
+<tr>
+<td>矿场控制器</td>
+<td>选择 extraNonce2，按约定把两个额外 nonce 嵌入 coinbase。算 coinbase 的 txid，沿分支算出普通 Merkle 根，构造头并分任务给芯片。更换 extraNonce2 会换一片 nonce 搜索空间。</td>
+</tr>
+<tr>
+<td>ASIC</td>
+<td>对分配到的区块头尝试不同的 32 位 nonce，算双 SHA-256，回报候选 nonce 及相应任务。芯片完成每次尝试只需头部计算材料。</td>
+</tr>
+<tr>
+<td>控制器与矿池</td>
+<td>控制器以 worker、J、extraNonce2、时间和 nonce 提交。矿池从会话和作业重建同一个头，复算、查重复与作业有效性。达到份额目标可按池规则记工，达到网络目标还应重建含见证的完整 K，交给节点验块并传播。</td>
+</tr>
+</tbody>
+</table>
+<p>设池的份额目标为 S，网络目标为 T，且 S &gt; T。哈希值落在 T &lt; h ≤ S 时，矿池可记工；h ≤ T 时，池方可重建并提交完整区块。Bob 的书款要等他的节点采用含 B 的块才获得确认。</p>
+<p><strong>英文术语</strong>　SHA-256（Secure Hash Algorithm 256-bit）、ASIC（Application-Specific Integrated Circuit，专用集成电路）、txid（transaction identifier，交易标识）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/22/">BIP 22 模板接口</a> · <a href="https://en.bitcoin.it/wiki/Stratum_mining_protocol">Bitcoin Wiki 的 V1 消息说明</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://developer.bitcoin.org/devguide/mining.html">Bitcoin 开发指南 · Pooled Mining 与 Stratum</a>　沿矿池和矿机之间的数据流区分模板、区块头和份额。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch12_mining.adoc">Mastering Bitcoin · Mining and Consensus</a>　对照矿池记工与全网验块。</li>
+</ul>
+</article>
+<article id="card-15a">
+<h1>15a · Bob 出块与书款确认</h1>
+<p>Bob 同时经营挖矿设施和书店。B 是支付书款的交易，K 是包含 B 的候选块。挖矿设施找到合格区块头后组装并提交 K，收款侧节点独立验证并采用 K。</p>
+<table>
+<thead>
+<tr>
+<th>完整流程</th>
+<th>数据与接收方</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>选父块、填块体、算根</td>
+<td>Bob 在出块方的角色选定父块 P 和交易 B，把 coinbase 放在首位；控制器根据作业材料构造候选头。此时已有候选块，Bob 的收款还未确认。</td>
+</tr>
+<tr>
+<td>搜索、命中</td>
+<td>ASIC 试 nonce；本次头哈希不大于目标，控制器上报参数，池方重建并复算。命中说明头的工作量证明达标。</td>
+</tr>
+<tr>
+<td>组装并提交 K</td>
+<td>作业协调取回完整交易，配上命中头提交给出块侧节点。该节点验证并接入有效的 K。</td>
+</tr>
+<tr>
+<td>收款侧验块、钱包确认</td>
+<td>Bob 以书商身份使用的全节点独立验 K、接入自己的活动链并通知钱包，书款在链尖获得 1 次确认。</td>
+</tr>
+</tbody>
+</table>
+<p>无论哪个矿工找到区块，Bob 的书款都在他的节点采用含 B 的块时获得确认。出块奖励按该块的 coinbase 支付。</p>
+<p><strong>英文术语</strong>　ASIC（Application-Specific Integrated Circuit，专用集成电路）。</p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://visualizebitcoin.org/world">Visualize Bitcoin · 3D 网络场景</a>　在模拟环境中跟踪矿工、交易和区块的关系。</li>
+<li><a href="https://www.bitcoindesigned.com/infographics/the-bitcoin-transaction-life-cycle/">Bitcoin Designed · 交易生命周期图</a>　沿付款流程图区分出块与收款确认。</li>
+</ul>
+</article>
+<article id="card-16">
+<h1>16　两名矿工同时出块，Bob 的节点跟哪一边？</h1>
+<p>两个矿工都找到达标的头，只说明两份 PoW 都合格。各节点还要验证区块内容，并在自己已知、可验证的有效分支中采用累计工作量最大的一条。网络延迟允许大家短暂采用不同链尖。</p>
+<table>
+<thead>
+<tr>
+<th>时刻</th>
+<th>Bob 的节点</th>
+<th>另一个节点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>父块 P</td>
+<td>活动链的 U 还在，B 要把它付给 Bob。</td>
+<td>同样从 P 出发。</td>
+</tr>
+<tr>
+<td>K 和 L1 几乎同时产生</td>
+<td>先收到并采用 K，其中 B 花 U。Bob 看见 60,000 聪获得 1 次确认。</td>
+<td>先收到并采用 L1，其中 C 花同一个 U。按这条分支，B 与 C 冲突。</td>
+</tr>
+<tr>
+<td>两边都收齐两个块</td>
+<td>K 与 L1 各自基于 P，各自可以有效。累计工作平手，Bob 可以继续用 K。</td>
+<td>同样可以继续用 L1。节点无须先统计有多少邻居支持哪边。</td>
+</tr>
+<tr>
+<td>L2 有效地延长 L1，且该支累计工作领先</td>
+<td>Bob 找到最近共同祖先 P，断开 K，恢复 U，移除 B 的两个输出。依次接入 L1、L2，C 花掉 U。钱包保留 B 的交易记录，并把它标为冲突，60,000 聪退出已确认余额。</td>
+<td>在 L1 上接 L2。两个节点得到同一活动链。</td>
+</tr>
+</tbody>
+</table>
+<p><strong>「最长链」怎样量？</strong> 单块工作量为 <code>floor(2²⁵⁶ / (T+1))</code>，体现该目标下找出一个合格哈希通常有多难。对同一个 T，运气特别好、找到更小哈希的矿工所得工作量也相同。区块索引累加父块工作量和本块工作量，得到 <code>nChainWork</code>。本例假设各块同一难度，一块对两块时，后者多一块的工作量。跨难度时期要逐块相加。可用第 14 卡创世块的真实目标复算：Python 表达式 <code>(1 &lt;&lt; 256) // ((0xffff &lt;&lt; 208) + 1)</code> 给出 4,295,032,833。</p>
+<p><strong>平手时谁先？</strong> Core v29.0 在普通运行中用本地序号等信息给同工作量的候选排序，通常有利于较早取得完整数据的分支。收到区块头的时刻、区块的自报时间戳、任一观察者看到的先后，都无法建立全网统一的“第一名”。若 L2 比 L1 的块体先到，Bob 需要取得缺失的祖先数据、验证父链，才能把这个分支接为活动链。</p>
+<p>无效祖先上的后继工作量无法使该分支有效。节点只在符合共识的分支之间比较累计工作量。</p>
+<p><strong>英文术语</strong>　PoW（Proof of Work，工作量证明）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/chain.cpp#L119">Core v29.0 工作量和共同祖先</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/node/blockstorage.cpp#L145">Core v29.0 候选排序</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://bitcoin-data.github.io/stale-blocks/tree/">Bitcoin Stale Blocks · 主网分叉树</a>　对照同高度兄弟块及它们的共同父块。</li>
+<li><a href="https://bitcoin-data.github.io/stale-blocks/">分叉树的数据目录</a>　核对观测来源以及数据覆盖边界。</li>
+<li><a href="https://andersbrownworth.com/blockchain/blockchain">Blockchain Demo · 链式哈希模拟</a>　修改旧块数据，观察后继块的父哈希如何失配。</li>
+<li><a href="https://arxiv.org/abs/2203.06357">Bitcoin’s Latency–Security Analysis Made Simple</a>　进一步了解网络传播延迟与确认安全性的关系。</li>
+</ul>
+</article>
+<article id="card-17">
+<h1>17　Bob 断开一个块时，怎样找回已经花掉的 U？</h1>
+<p>断开 K 需要两份互补的数据：从 K 的交易读出该移除哪些新输出，从撤销记录读出先前被花掉的旧币内容。</p>
+<p><strong>逆序移除</strong>按块内交易顺序从后往前撤销。若 B 创建了 B:0，而同块后面的 D 花掉 B:0，断块时先撤销 D，移除 D 的输出并恢复 B:0；再撤销 B，移除 B:0、B:1 并恢复 U。这样 B:0 在断块完成后不会残留。</p>
+<h2>在 Bob 的钱包里，「断开旧块」意味着什么？</h2>
+<p>设 K 是 Bob 当前链尖，父块是 P。K 确认了 B，Bob 因而看到一笔已确认的 60,000 聪。后来节点发现从 P 分出的另一条有效分支累计工作量更大。切换时先从旧链尖往回走：断开 K，撤回 K 创建的输出，凭撤销记录恢复 K 花掉的旧输出 U。K 可以继续存在于本地块文件和区块索引中。钱包收到断块事件后撤下 B 的旧确认位置，保留原交易记录。</p>
+<p>下一步才连接新分支。如果其中 C 花了 U，B 与它冲突；如果新分支也含 B，B 可以在新位置重新获得确认；如果两者都没被收录，B 能否重新入池须再检查输入和本地策略。停在「断开」这一步，还不能断定钱已经退给 Alice，或 Bob 永远收不到书款。</p>
+<table>
+<thead>
+<tr>
+<th>本地记录</th>
+<th>按什么找</th>
+<th>在 K 的流程中何时读写</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>区块索引</td>
+<td>块哈希 → 父块指针、高度、累计工作、验证状态、磁盘位置等</td>
+<td>收到头后可先建立分支关系。即使暂时只有头，也能记录这个位置，但不能据此给 B 确认。</td>
+</tr>
+<tr>
+<td>块体文件 <code>blk*.dat</code></td>
+<td>索引指向磁盘位置，块体内含有序交易</td>
+<td>节点收到完整块后可存储。断 K 时按相反顺序处理交易，移除新产生的输出。</td>
+</tr>
+<tr>
+<td>UTXO 数据库与缓存</td>
+<td>outpoint，即创建交易的 txid 加输出序号 → Coin，含金额、脚本、创建高度和 coinbase 标记</td>
+<td>试接 K 时从父状态取 U，检查并花掉它，写入 B:0 和 B:1。验证成功才把工作视图合入活动链状态，磁盘可稍后批量刷新。</td>
+</tr>
+<tr>
+<td>撤销文件 <code>rev*.dat</code></td>
+<td>按块索引的撤销位置，按交易及输入位置读旧 Coin</td>
+<td>连接活动链区块时保存被花掉的旧 Coin。断 K 时从 B 的输入读出 U 的引用，并用相应旧 Coin 恢复金额 100,000 聪和旧锁定脚本等。</td>
+</tr>
+<tr>
+<td>钱包自己的交易记录</td>
+<td>交易 ID、匹配到的钱包脚本、花费关系、所在块等</td>
+<td>接收节点的入池、接块、断块事件，维护与自己有关的记录。接块后按活动链计算确认深度；接入含 C 的分支后更新 B 的冲突状态。</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第一次上线。</strong> 常规初始同步先从邻居取得区块头，检查父链、目标和头的工作量；按所选候选分支下载块体，依序执行交易、构建 UTXO 状态。只有头还缺少逐笔执行的材料。Core 的历史脚本检查优化（assumevalid）和可选快照启动属于实现选择。一个裁剪节点也会取得并处理历史块，随后按配置删除较老的块体及配套撤销文件，同时保留索引与当前 UTXO。要从很早的高度重新扫描钱包，若相关块数据已裁剪，须重新取得那些数据。</p>
+<p><strong>回到书款。</strong> 从 K 逆向还原时，节点可以严格区分「恢复 U 的 100,000 聪」与「Bob 钱包把 B 的确认撤下」。这两件事由不同组件处理。若随后接入 L1，C 会再花 U；此时 B 无法作为一笔可接纳的未确认交易简单地重新入池。</p>
+<p>整块验证失败时，临时视图中执行过的交易不会提交到活动链。U 仍在，B 不会从这个块获得确认。</p>
+<p><strong>英文术语</strong>　UTXO（Unspent Transaction Output，未花费交易输出）、txid（transaction identifier，交易标识）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/doc/files.md">Core v29.0 数据文件表</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp#L2108">Core v29.0 断块实现</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://bitcoincore.academy/transaction-identification.html">Bitcoin Core Onboarding · 钱包交易识别</a>　核对节点状态变化与钱包相关交易记录的区别。</li>
+<li><a href="https://developer.bitcoin.org/devguide/block_chain.html">Bitcoin 开发指南 · 区块链与分支</a>　对照活动链、分支切换与交易状态。</li>
+<li><a href="https://learnmeabitcoin.com/technical/block/blkdat/">Learn Me A Bitcoin · blk.dat</a>　对照区块文件中记录的头与块体。</li>
+</ul>
+</article>
+<article id="card-18">
+<h1>18 · 时间锁、链上时间与规则激活</h1>
+<p>时间锁规定一笔交易最早何时可以被区块收录。绝对锁以高度或时间设门槛，相对锁从输入所引用输出的链上位置起算。MTP 是一段近期区块头时间戳的中位数，为共识检查提供可重复计算的时间参照。</p>
+<p>交易双方可以约定“到期后才能花”或“收到后再等一段时间”，每个验证节点都能独立判断是否到期。这些规则也有生效边界：软分叉收紧有效块条件，激活机制确定升级节点从什么时候开始执行新增规则。</p>
+<p><strong>锁的刻度。</strong> 绝对锁由 nLockTime 表达，可设为区块高度或时间。相对锁由输入的 nSequence 表达，可按块数或 512 秒为单位等待。CLTV 和 CSV 是脚本操作码，分别要求花费交易采用满足脚本下限的绝对锁或相对锁。</p>
+<p><strong>如何从输入字段读取相对锁。</strong> 对版本至少为 2 的交易，32 位 nSequence 的第 31 位清零才启用 BIP68；低 16 位是等待量，第 22 位选择按区块或按 512 秒计时。值 0x00000003 表示至少相隔 3 个高度，0x00400003 表示按规定的两端 MTP 至少相隔 1,536 秒。父块 MTP 取父块及其之前最多十个祖先的时间戳，排序后取中间值。</p>
+<p><strong>英文术语</strong>　MTP（Median Time Past，过去区块时间中位数）、CLTV（Check Lock Time Verify，对应 OP_CHECKLOCKTIMEVERIFY）、CSV（Check Sequence Verify，对应 OP_CHECKSEQUENCEVERIFY）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><a href="#card-example-18">计算到期高度并对照激活条件</a> · <a href="https://bips.dev/68/">BIP 68 相对锁</a></p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/113/">BIP 113 的 MTP</a> · <a href="https://bips.dev/9/">BIP 9 版本位激活</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/script-playground">Block Zero · 时间锁脚本</a>　使用 timelock 模板，观察脚本对时间条件的检查。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch07_authorization-authentication.adoc">Mastering Bitcoin · 锁定条件</a>　查阅绝对时间锁与相对时间锁的脚本说明。</li>
+<li><a href="https://learnmeabitcoin.com/technical/transaction/locktime/">Learn Me A Bitcoin · Locktime</a>　查看高度型与时间型绝对锁的字段解释。</li>
+</ul>
+</article>
+<article id="card-19">
+<h1>19 · 聪与 BTC 的计量关系</h1>
+<p>聪（sat）是 Bitcoin 链上金额的最小单位。BTC 是 bitcoin（比特币）的单位符号。1 BTC 等于 100,000,000 聪，所以 1 聪等于 0.00000001 BTC。交易输出的金额以整数聪编码，钱包可把同一笔金额显示成 BTC。</p>
+<p>用一个共同的整数单位，钱包和节点就能精确加减金额。60,000 聪写作 0.00060000 BTC，两种写法指同一笔书款。</p>
+<p><strong>字段与字节。</strong> Core 用 CAmount（int64_t）在内存中表示金额。CTxOut 的 nValue 在普通交易输出中按 8 字节小端编码。60,000 聪等于十六进制 EA60，写入为 <code>60 ea 00 00 00 00 00 00</code>；解码时最低两字节贡献 96 + 234 × 256 = 60,000。</p>
+<p><strong>英文术语</strong>　sat（satoshi，聪）。</p>
+<p><a href="#card-example-19">换算并解码金额字节</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/consensus/amount.h#L9-L13">Bitcoin Core v29.0 的金额常量</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://mempool.space/zh/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">高度 170 · 真实交易金额</a>　把首个输出的 10 BTC 对应到 1,000,000,000 聪。</li>
+<li><a href="https://mempool.space/api/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">同一交易的 JSON</a>　查看 vout[0].value 的整数聪金额。</li>
+</ul>
+</article>
+<article id="card-20">
+<h1>20 · 钱包与全节点的职责</h1>
+<p>钱包管理本用户能识别的脚本、密钥或签名器，以及相关交易记录。全节点从区块与交易独立验证规则，维护自己采用的链及其未花费输出集合。两者可以运行在同一台设备上，也可以分开部署。</p>
+<p>用户需要查询与自己有关的钱、构造并授权付款；网络参与者需要判断付款是否符合规则。钱包把人的意图变成交易，并把节点观察到的事件变成余额与确认数。全节点提供独立验证所依据的状态。</p>
+<p><strong>同一输出的两份记录。</strong> 全节点用 (txid, 输出序号) 查询 Coin，取得金额、脚本和创建高度等验证资料。钱包按 txid 找钱包交易记录，检查输出脚本是否命中本地脚本索引，再按 outpoint 查是否已有花费。例如接入含 B 的块时，节点删除 U、加入 B:0 和 B:1；Bob 的钱包只将匹配自身收款脚本的 B:0 计入已确认书款。</p>
+<p><strong>英文术语</strong>　txid（transaction identifier，交易标识）。</p>
+<p><a href="#card-example-20">沿付款、入池与首次确认对照两者</a> · <a href="https://developer.bitcoin.org/devguide/wallets.html#wallet-programs">Bitcoin 开发指南的 Wallet Programs</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://bitcoincore.academy/components-overview.html">Bitcoin Core Onboarding · bitcoind 与钱包组件图</a>　对照节点进程、钱包接口及各自维护的数据。</li>
+<li><a href="https://www.bitcoinaccess.org/academy/bitcoin/how-bitcoin-works">Bitcoin Access · Alice → Bob 模拟付款</a>　观察付款、传播及确认分别发生在哪里。</li>
+<li><a href="https://developer.bitcoin.org/devguide/wallets.html">Bitcoin 开发指南 · 钱包组成</a>　对照密钥管理、签名与网络通信的角色。</li>
+<li><a href="https://cs251.stanford.edu/lectures/lecture3.pdf">Stanford CS251 · 钱包课件</a>　查看密钥管理、钱包和支付的结构图。</li>
+</ul>
+</article>
+<article id="card-21">
+<h1>21 · 为什么有人愿意花电挖这个块？</h1>
+<p>矿工投入设备、电力和时间，争取让自己构造的有效块进入活动链。块首的特殊交易叫 coinbase，构造者可以在它的输出中指定收款条件，最多领取该高度的区块补贴加本块全部手续费。只有补贴来自新发行；手续费来自已有输出。</p>
+<p><strong>跟着 1,000 聪走。</strong> B 引用 100,000 聪，产生 60,000 和 39,000 两个输出。K 如果选 B，可领取金额就由它增加 1,000 聪。为方便心算，假设示例区块 K 高度为 840,001，且仅有 coinbase 与 B。这是设定的高度，不对应那一高度的主网块。此时已经过四次减半，补贴为 50 ÷ 16 = 3.125 BTC = 312,500,000 聪，所以 coinbase 的输出总额最多为 312,501,000 聪。高度为 H 的 coinbase 输出最早能由高度 H+100 的块内交易花费。</p>
+<p><strong>谁会付，谁会查。</strong> 构造者自己写 coinbase，各全节点按高度、块内交易和各输入的旧金额独立算上限。矿场交回一个普通份额时，只由矿池按双方约定记工和结算。Bob 转发交易或验证别人的块，协议没有给他另设报酬。若另一个有效分支后来胜出，旧分支的 coinbase 输出也从活动链状态退出。这样，矿工争取的是能被别人验证并继续延伸的块；奖励是经济动机，不能保证每个参与者必然诚实。</p>
+<p>本例允许少领奖励；超领 1 聪就会使整块无效。</p>
+<p><strong>英文术语</strong>　BTC（bitcoin，比特币的单位符号）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp#L2495-L2499">Bitcoin Core v29.0 的奖励上限检查</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/halving/">SatoshiBench · 区块补贴变化</a>　查看各减半周期对应的补贴和高度。</li>
+<li><a href="https://www.3blue1brown.com/lessons/bitcoin/">3Blue1Brown · Bitcoin 动画</a>　从共享账本推演到计算成本与出块激励。</li>
+<li><a href="https://developer.bitcoin.org/devguide/mining.html">Bitcoin 开发指南 · 挖矿奖励</a>　区分区块收入和矿池按份额分账。</li>
+<li><a href="https://bitcoin.org/bitcoin.pdf#page=4">Bitcoin 白皮书 · Incentive</a>　核对挖矿激励中区块补贴与交易手续费的来源。</li>
+</ul>
+</article>
+<article id="card-example-01">
+<h1>复算两种交易标识</h1>
+<p>Alice 提交的是有确定顺序的一串交易字节。两台机器只要取相同的字节、用相同的算法，就会算出相同的标识。</p>
+<p><strong>先摸到字节。</strong> 十六进制的两个字符写一个字节。把字符串 <code>abc</code> 编成 ASCII 得到三个字节 <code>61 62 63</code>。把屏幕上看到的六个字符 <code>616263</code> 逐字编码，会得到另一份输入。SHA-256 把任意长度的字节串映射成 32 字节。双 SHA-256 把第一次的 32 个原始字节再送入 SHA-256。RIPEMD-160 输出 20 字节。钱包给压缩公钥做 HASH160 时，先算 SHA-256，再把 32 字节交给 RIPEMD-160。</p>
+<pre class="python"><code>from hashlib import sha256
+raw = bytes.fromhex(&quot;61 62 63&quot;)
+first = sha256(raw).digest()
+print(first.hex())
+print(sha256(first).hexdigest())</code></pre>
+<p>第一行应以 <code>ba7816bf8f01cfea</code> 开头，第二行为 <code>4f8b42c22dd3729b519ba6f68d2da7cc5b2d606d05daed5ad5128cc03e6c6358</code>。</p>
+<table>
+<thead>
+<tr>
+<th>想标记什么</th>
+<th>双 SHA-256 的输入</th>
+<th>谁会用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>txid</td>
+<td>基本格式的版本、输入、输出、锁定时间</td>
+<td>Bob 以后花 B:0 时，用它和编号 0 定位旧输出</td>
+</tr>
+<tr>
+<td>wtxid</td>
+<td>含见证时，把标记、标志、各输入见证也按规定位置编码</td>
+<td>支持见证交易通告的节点可用它识别完整版本，区块见证承诺也使用它，coinbase 叶另有约定</td>
+</tr>
+</tbody>
+</table>
+<p>两种 ID 在浏览器和 RPC 中通常都按摘要<strong>反转字节顺序</strong>后显示。比如摘要的示意尾部为 <code>… ab cd</code>，显示就以 <code>cdab…</code> 开头。对没有见证的交易，两种计算使用同一份基本格式。签名时要算的 BIP143 摘要另有字段排列，见专题 08。</p>
+<p>txid 只覆盖基本交易字段。见证签名的字节变化会影响 wtxid；即使签名无效，仍可按序列化字节计算两种标识。</p>
+<p><strong>英文术语</strong>　SHA-256（Secure Hash Algorithm 256-bit）、RIPEMD-160（RACE Integrity Primitives Evaluation Message Digest，160 位）、RPC（Remote Procedure Call，远程过程调用）、txid（transaction identifier，交易标识）、wtxid（witness transaction identifier，含见证交易标识）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/141/#transaction-id">BIP141</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/sha256">Block Zero · SHA-256</a>　输入文本或文件，查看摘要。</li>
+<li><a href="https://btcvisual.com/experiments/hash">BTCVisual · 哈希实验</a>　用中文界面观察输入字节与哈希结果。</li>
+</ul>
+<p><a href="#card-01">返回概念卡 · 哈希函数、原始字节与交易标识</a></p>
+</article>
+<article id="card-example-02">
+<h1>用公开小整数演算公钥</h1>
+<p>收款钱包先取得一个私钥整数 d，或从已有的扩展公钥派生相应公钥。给定私钥时，用 secp256k1 规定的基点 G 做标量乘法，得到唯一公钥点 Q。将来花 B:0 时，Bob 才用相应私钥签名。</p>
+<p><strong>手算一个和 B:0 对得上的例子。</strong> 曲线上每个点有 x、y 两个坐标，满足 <code>y² ≡ x³ + 7 (mod p)</code>，其中 <code>p = 2²⁵⁶ − 2³² − 977</code>。加减乘除都在这个有限集合中算，除法用模逆。合法私钥的范围为 1 到 n−1，n 是基点 G 的阶（把 G 相加 n 次会得到群的单位元）。真实钱包从安全随机数或安全生成的种子派生密钥。下面的 d=2 是公开的演算参数，任何人都能为这把钥匙签名。</p>
+<pre class="python"><code>p = 2**256 - 2**32 - 977
+x = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+y = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
+slope = 3*x*x * pow(2*y, -1, p) % p
+qx = (slope**2 - 2*x) % p
+qy = (slope*(x-qx) - y) % p
+pub = bytes([2 + qy % 2]) + qx.to_bytes(32, &quot;big&quot;)
+print(pub.hex())</code></pre>
+<p>这里算的是 2G，即 G 与自己相加。一般的标量可以按二进制位用倍点与加点得到 dG。将点压缩时，取前缀 <code>02</code> 表示偶数 y，<code>03</code> 表示奇数 y，再跟 32 字节大端 x。由 x 代回曲线方程和这个奇偶位就能恢复对应的 y。上例的 33 字节结果为 <code>02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5</code>。用该公钥的 HASH160 可以构造 Bob 的收款脚本。公开该点让别人可以验签，从一般安全随机生成的公钥反求私钥在计算上不可行。</p>
+<p>压缩前缀 02 与 03 选取同一横坐标上不同的曲线点，编码出的公钥及其 HASH160 也随之不同。</p>
+<p><strong>规范与实现</strong>　<a href="https://www.secg.org/sec2-v2.pdf">Standards for Efficient Cryptography 2 (SEC 2)</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/key-generation">Block Zero · 密钥生成</a>　观察随机比特、私钥、公钥与地址的生成过程。</li>
+<li><a href="https://karpathy.github.io/2021/06/21/blockchain/">Karpathy · Python 椭圆曲线运算</a>　对照点加法、标量乘法与公钥编码；文中的地址示例使用传统 P2PKH。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/p2p/public-key/index.html">廖雪峰 · 公钥</a>　用中文图解对照私钥和公钥的关系。</li>
+<li><a href="https://learnmeabitcoin.com/technical/keys/public-key/">Learn Me A Bitcoin · Public Key</a>　对照椭圆曲线点和压缩公钥的表示。</li>
+</ul>
+<p><a href="#card-02">返回概念卡 · 私钥、公钥与压缩公钥</a></p>
+</article>
+<article id="card-example-03">
+<h1>从助记词派生收款地址与找零地址</h1>
+<p>Bob 给下一个买家出示另一个收款地址时，钱包可以从同一棵密钥树取下一个位置。备份了种子，并掌握路径、脚本类型及必要的钱包元数据，就可以重建相应密钥与脚本。</p>
+<h2>从助记词到 Bob 展示的收款地址</h2>
+<p>在采用 BIP39 的钱包里，初始化一次就能为后续收款准备一棵密钥树。以 12 词为例，钱包产生 128 位随机数，附上 SHA-256 摘要开头 4 位校验，再每 11 位查一次 2,048 词的词表。恢复时，以规范化（UTF-8 NFKD）的词句为密码，以同样规范化的 <code>mnemonic</code> 加可选口令为盐，用 PBKDF2-HMAC-SHA512 迭代 2,048 次得到 64 字节种子。之后由 BIP32 得到主私钥和链码，再逐层派生。一个普通子私钥可用于计算自己的公钥和地址；要重建整棵树，还需要种子或相应的根扩展密钥。不同钱包采用的备份形式可以不同，Core 描述符钱包也可从描述符跟踪脚本。</p>
+<p>取一个子私钥 d，算公钥点 dG，将压缩公钥做 HASH160 得到 20 字节。收款脚本是 <code>00 14 &lt;这20字节&gt;</code>；主网地址把见证版本 0、这 20 字节和网络前缀 bc 按 Bech32 编码。Alice 扫码时反向解码，还原 Bob 交给她的花费条件。给出地址这一步可以在收到付款以前完成。</p>
+<p><strong>对照公开样例。</strong> 切换到 BIP84 官方测试钱包（与示例交易 B 分开）：11 个 <code>abandon</code> 后接 <code>about</code>，空口令。主网第一个账户的首个收款位置 <code>m/84'/0'/0'/0/0</code> 得到 <code>bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu</code>。内部派生分支的路径为 <code>m/84'/0'/0'/1/0</code>，对应同账户的首个找零地址 <code>bc1q8c6fshw2dlwun7ekn9qwf37cu2rn755upcp6el</code>。BIP39 按 MIT 保留许可声明可离线收录，BIP84 为 CC0。<a href="https://bips.dev/39/">BIP39</a> · <a href="https://bips.dev/84/#test-vectors">BIP84 测试向量</a></p>
+<p><strong>从种子开始。</strong> HMAC-SHA512 接受一把 HMAC 密钥和一段消息，输出 64 字节。BIP32 建树时以 ASCII 字节 <code>Bitcoin seed</code> 为 HMAC 密钥，以种子原始字节为消息。把结果对半切开，左 32 字节解释为大端整数，合法时成为主私钥，右 32 字节是主链码。链码给下一次派生充当 HMAC 密钥。扩展私钥含私钥和链码，扩展公钥含公钥和链码。编码为 xprv/xpub 时还记录版本、深度、父指纹、子下标等字段，方便定位。</p>
+<table>
+<thead>
+<tr>
+<th>派生方式</th>
+<th>HMAC 的消息（最后 4 字节为大端下标）</th>
+<th>能从父扩展公钥推出子公钥吗？</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>普通，i &lt; 2³¹</td>
+<td>父压缩公钥 ∥ i</td>
+<td>能</td>
+</tr>
+<tr>
+<td>硬化，i ≥ 2³¹</td>
+<td>字节 00 ∥ 32 字节父私钥 ∥ i</td>
+<td>需要父私钥</td>
+</tr>
+</tbody>
+</table>
+<p>两行都用父链码作 HMAC 密钥。输出左半作为整数 t，子私钥是 <code>(t + 父私钥) mod n</code>，右半成为子链码。普通派生还可直接算 <code>子公钥 = tG + 父公钥</code>。若 t ≥ n 或所得子私钥为 0，按规范进入下一下标。路径 <code>m/0'/1</code> 表示从主私钥先走硬化下标 0（实际编码 0x80000000），再走普通下标 1。</p>
+<p><strong>换到 BIP32 官方测试向量 1。</strong> 在 Python 运行下列三行，得到的主私钥开头为 <code>e8f32e723decf405</code>，主链码开头为 <code>873dff81c02f5256</code>。把 main[32:] 作密钥，以 <code>00 ∥ main[:32] ∥ 80000000</code> 作消息再算一次，子链码应以 <code>47fdacbd0f109704</code> 开头。</p>
+<pre class="python"><code>import hmac
+main = hmac.digest(b&quot;Bitcoin seed&quot;, bytes(range(16)), &quot;sha512&quot;)
+print(main[:32].hex(), main[32:].hex())
+print(hmac.digest(main[32:], b&quot;\x00&quot;+main[:32]+bytes.fromhex(&quot;80000000&quot;), &quot;sha512&quot;)[32:].hex())</code></pre>
+<p>收款分支的 xpub 可以派生普通子公钥。硬化派生需要父私钥；派生路径由钱包管理。</p>
+<p><strong>英文术语</strong>　HD（Hierarchical Deterministic，分层确定性）、SHA-256（Secure Hash Algorithm 256-bit）、HMAC-SHA512（Hash-based Message Authentication Code using SHA-512）、PBKDF2（Password-Based Key Derivation Function 2）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/32/#test-vector-1">BIP32</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/seed-walkthrough">Block Zero · Seed Walkthrough</a>　用公开演示词观察种子、主密钥、路径与子地址。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/hd-wallet/hierarchy/index.html">廖雪峰 · 分层派生</a>　沿密钥树对照账户、收款分支和找零分支。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/hd-wallet/mnemonic/index.html">廖雪峰 · 助记词</a>　查看随机数、校验位和词序列的对应关系。</li>
+</ul>
+<p><a href="#card-03">返回概念卡 · 分层确定性钱包与扩展密钥</a></p>
+</article>
+<article id="card-example-04">
+<h1>从地址还原 B:0，辨认 B:1 的找零</h1>
+<p>Bob 把收款条件编码成便于抄写或扫码的地址。Alice 的钱包解码它，再把金额与相应的锁定脚本写入交易。</p>
+<h2>为什么 Alice 还给自己写一个找零脚本？</h2>
+<p>U 必须整项花费。Alice 交出 100,000 聪，付书款 60,000 聪，留 1,000 聪作手续费，还剩 39,000 聪。她的钱包在自己的内部派生分支取一个新公钥，按与收款相同的规则生成脚本，将 39,000 聪和该脚本写入 B:1。这个脚本规定谁可以花 B:1。Alice 的钱包知道它来自自己的派生分支，因此将它识别为找零；验证节点只看见一个普通输出。B:0 与 B:1 都可以使用 P2WPKH，输出顺序本身不能证明哪项是找零。</p>
+<p>本例缺少找零输出时，手续费为 100,000 − 60,000 = 40,000 聪。</p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>书款案例里可以逐字节对照的值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>从卡 02 得到的压缩公钥</td>
+<td><code>02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5</code></td>
+</tr>
+<tr>
+<td>HASH160，20 字节</td>
+<td><code>06afd46bcdfd22ef94ac122aa11f241244a37ecc</code></td>
+</tr>
+<tr>
+<td>主网 Bech32 地址</td>
+<td><code>bc1qq6hag67dl53wl99vzg42z8eyzfz2xlkvxechjp</code></td>
+</tr>
+<tr>
+<td>B:0 的 scriptPubKey，22 字节</td>
+<td><code>00 14 06afd46bcdfd22ef94ac122aa11f241244a37ecc</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Bob 编码。</strong> 先对 33 字节公钥做 SHA-256，再对摘要做 RIPEMD-160。把 20 字节见证程序的 160 位从左往右分成 32 组，每组 5 位，前面再放一个值为 0 的见证版本。主网前缀 <code>bc</code> 与这些数据一起参与 Bech32 的 polymod 校验运算，生成 6 个校验字符。用规定字符表编码数据，将前缀、分隔符 <code>1</code>、数据字符和校验字符连起来。分隔符后的第一个 <code>q</code> 编码见证版本 0。此处应用 Bech32；见证版本 1 至 16 的地址改用 Bech32m。</p>
+<p><strong>Alice 解码。</strong> 钱包检查字符、大小写、网络前缀和校验和，将 5 位数据还原为字节并检查填充。v0 与长度 20 一起标明 P2WPKH。它把版本写作操作码 <code>00</code>，再写 <code>14</code>（十进制 20，表示推入 20 字节）及这 20 字节。输出编码为 <code>60ea000000000000 16 0014…</code>，其中金额是小端的 60,000 聪，<code>16</code> 表示脚本占 22 字节。以后 Bob 花 B:0 时，节点才检查与这个哈希匹配的公钥和签名。</p>
+<p>Bech32 校验和能够检测单字符录入错误；一个校验正确的地址仍须由付款人核对收款对象。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、SHA-256（Secure Hash Algorithm 256-bit）、RIPEMD-160（RACE Integrity Primitives Evaluation Message Digest，160 位）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/173/#segwit-address-format">BIP173</a> · <a href="https://bips.dev/350/#addresses-for-segregated-witness-outputs">BIP350</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/key-generation">Block Zero · 公钥到 Bech32 地址</a>　沿同一把演示公钥查看收款地址的生成。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch04_keys.adoc">Mastering Bitcoin · Keys and Addresses</a>　对照公钥哈希、地址编码与网络前缀。</li>
+</ul>
+<p><a href="#card-04">返回概念卡 · 收款地址、见证程序与输出脚本</a></p>
+</article>
+<article id="card-example-05">
+<h1>逐步执行脚本并检查归属</h1>
+<p>P2WPKH 的全称是 Pay to Witness Public Key Hash。创建输出时，付款钱包留下一个公钥哈希。后来有人花这项输出，节点才检查公钥和签名。</p>
+<h2>脚本怎样让钱包认出「这项输出与我有关」？</h2>
+<p>脚本是按 Bitcoin Script 规则解释的一串字节。操作码描述动作，紧随压栈指令的字节可以携带数据。每个交易输出都有金额和 scriptPubKey，它规定将来花这一项时要满足的条件。示例交易 B:0 的 22 字节为 <code>00 14 06afd46bcdfd22ef94ac122aa11f241244a37ecc</code>。节点识别版本 0 和 20 字节见证程序，按 P2WPKH 规则验证后续花费。</p>
+<p><strong>现在收款。</strong> Bob 的钱包已从自己的描述符派生一批脚本并建立查找索引。B 到达时，钱包依次用输出的完整脚本字节查表。B:0 命中，于是登记 (B 的 txid, 0)、60,000 聪和所在交易状态；B:1 的脚本属于 Alice。观察钱包也能做这种匹配。匹配说明输出在钱包的跟踪范围内；能否独立花费，还要看能否满足脚本要求、获得签名。</p>
+<p><strong>以后花费。</strong> Bob 要花 B:0 时，在新交易的输入里引用这个 outpoint 并提供相应见证。全节点读取旧输出的真实脚本和金额，检查公钥哈希与签名，并核对输出在当前状态下仍可花。它无需访问 Bob 的钱包脚本索引。</p>
+<table>
+<thead>
+<tr>
+<th>正在做的事</th>
+<th>读取的条件</th>
+<th>谁提供见证</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice 用 B 花旧输出 U</td>
+<td>U 的 scriptPubKey 内的 Alice 公钥哈希</td>
+<td>Alice 在 B 的输入 0 提供</td>
+</tr>
+<tr>
+<td>B 给 Bob 创造 B:0</td>
+<td>B:0 写入 <code>00 14 06afd4…7ecc</code></td>
+<td>Bob 收钱时无需签名</td>
+</tr>
+<tr>
+<td>Bob 以后用另一笔交易花 B:0</td>
+<td>B:0 已写入的 Bob 公钥哈希</td>
+<td>Bob 在那一笔新交易的对应输入提供</td>
+</tr>
+</tbody>
+</table>
+<h2>见证是一种怎样的数据结构？</h2>
+<p>在交易对象里，每个输入可有一份 witness，它是<strong>有顺序的字节串列表</strong>。在有见证交易的线格式里，各输入的列表依输入顺序统一写在所有输出之后、locktime 之前。每个列表先写元素数，每项先写字节长度，数量与长度都用 CompactSize。没有见证的那个输入在这种格式下占一个 <code>00</code> 空列表。若整笔交易都没有见证，则使用基本格式，省去整段见证以及 marker、flag。</p>
+<p>原生 P2WPKH 的 scriptSig 必须为空，见证恰有两项。第一项是 DER 编码的 ECDSA 签名再附一字节签名模式（本例 <code>01 = SIGHASH_ALL</code>）。第二项为公钥，本课使用 33 字节压缩公钥。可以把 B 的输入画成 <code>[Alice 的签名及模式, Alice 的公钥]</code>。具体签名长度依实际 DER 编码而定。见证中的每项是数据，计数与长度也只负责解码。</p>
+<h2>节点如何检查？</h2>
+<p>节点按输入的 outpoint 取到 U 的金额和脚本。发现 v0 的 20 字节程序后，以见证两项初始化执行栈，按与 P2PKH 相应的脚本执行。下表中栈顶在右，H 是 U 原先承诺的 20 字节。</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>执行后栈的含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>初始</td>
+<td>签名，公钥</td>
+</tr>
+<tr>
+<td>OP_DUP</td>
+<td>签名，公钥，公钥副本</td>
+</tr>
+<tr>
+<td>OP_HASH160</td>
+<td>签名，公钥，刚算出的 20 字节</td>
+</tr>
+<tr>
+<td>推入 H，再 OP_EQUALVERIFY</td>
+<td>两份哈希相同则继续，留下签名、公钥。不同则失败</td>
+</tr>
+<tr>
+<td>OP_CHECKSIG</td>
+<td>读取签名模式，按 BIP143 和 U 的金额等字段重算摘要，验签后压入结果</td>
+</tr>
+</tbody>
+</table>
+<p>对于此见证花费，最终栈须恰有一个真值。填写新收款脚本、构造签名用的 scriptCode、运行验签检查发生在不同环节。以 B 为例，前者可写 Bob 的哈希，后两者针对正在花的 U。验块时有任何输入的必需脚本检查失败，整块无效。</p>
+<p>U 的脚本承诺 Alice 的公钥哈希。Bob 的公钥能用于花费 B:0；用它验证 U 的花费会在公钥哈希检查处失败。</p>
+<p><strong>英文术语</strong>　P2PKH（Pay to Public Key Hash，支付到公钥哈希）、ECDSA（Elliptic Curve Digital Signature Algorithm，椭圆曲线数字签名算法）、DER（Distinguished Encoding Rules，可辨别编码规则）、txid（transaction identifier，交易标识）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/141/#witness-program">BIP141 见证程序</a> · <a href="https://bips.dev/143/#native-p2wpkh">BIP143 官方向量</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/script-playground">Block Zero · Script Playground</a>　逐条执行 P2PKH 模板，观察公钥哈希比较和验签时的栈；原生 P2WPKH 的初始数据来自见证。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch07_authorization-authentication.adoc">Mastering Bitcoin · 授权脚本</a>　对照输出条件和花费时提供的授权数据。</li>
+</ul>
+<p><a href="#card-05">返回概念卡 · P2WPKH 与脚本执行</a></p>
+</article>
+<article id="card-example-05a">
+<h1>拆读见证的长度、次序与字节</h1>
+<p>对一笔带见证的交易，每个输入都对应一份见证。把其中一份想成一个有次序的列表，每一项可以装一串不同长度的字节。对于 B 唯一的输入，Alice 的钱包写入两项；节点验证的是她能否满足旧输出 U 的花费条件。</p>
+<table>
+<thead>
+<tr>
+<th>输入 0 的见证</th>
+<th>谁写、谁读</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 0 项：DER 编码的 ECDSA 签名，末尾附一字节 01</td>
+<td>Alice 签名时写；验证者读取 01，据此按 SIGHASH_ALL 计算摘要，再验证签名</td>
+</tr>
+<tr>
+<td>第 1 项：Alice 的 33 字节压缩公钥</td>
+<td>Alice 写；验证者以 HASH160 和 U 里的 20 字节哈希比对，并用公钥验签</td>
+</tr>
+</tbody>
+</table>
+<p><strong>跟着字节读。</strong> 在带见证序列化里，先读完所有输入与输出，再按输入顺序读各自的见证，最后读锁定时间。每份见证先写元素个数，每个元素再写长度和内容，两个计数都用 CompactSize。示例交易 B 的结构可读作「02｜签名项长度｜签名及 01｜21｜公钥」。这里 21 是十六进制的 33；签名项的精确长度取决于实际签名字节。这一段是结构示意。卡 06 给出完整官方样例，可逐字节数。</p>
+<p><strong>什么时候轮到 Bob？</strong> B 当下写入 Bob 的是输出 B:0 的花费条件。将来 Bob 再花 B:0 时，会在下一笔交易对应输入里写自己的见证。因此 Bob 收书款时不需要给 Alice 回传签名。</p>
+<p>见证列表中的顺序有协议含义。P2WPKH 按位置读取签名与公钥，颠倒次序会导致验证失败。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、ECDSA（Elliptic Curve Digital Signature Algorithm，椭圆曲线数字签名算法）、DER（Distinguished Encoding Rules，可辨别编码规则）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/141/#transaction-id">BIP141 的 Transaction ID 与 Witness program 两节</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/script/script.h#L541-L545">Bitcoin Core v29.0 的 CScriptWitness 定义</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/segwit/">SatoshiBench · SegWit</a>　对照见证所占比例、交易重量与费用。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/segwit/index.html">廖雪峰 · 隔离见证</a>　查看签名数据所在位置和两种交易标识的区别。</li>
+<li><a href="https://learnmeabitcoin.com/technical/transaction/witness/">Learn Me A Bitcoin · Witness</a>　按输入读见证列表的元素与长度。</li>
+</ul>
+<p><a href="#card-05a">返回概念卡 · 输入见证的数据结构</a></p>
+</article>
+<article id="card-example-06">
+<h1>读取一笔完整交易并复算字节</h1>
+<p>UTXO 是 <em>unspent transaction output</em>，即还可以花的一项交易输出。Bob 看到的余额来自钱包汇总它识别的输出。节点要判断某笔钱能否花，就查询具体的输出。</p>
+<h2>从历史交易算出当前余额</h2>
+<p>把旧交易按活动链顺序读一遍：每遇到一个普通输入，就按 outpoint 删掉它花费的那一项；每遇到一个可进入 UTXO 集的新输出，就按 (本交易 txid, 输出序号) 加入金额、脚本及验证所需元数据。钱包可以只跟踪和自己有关的记录，再按「我识别的脚本、是否已花费、是否已确认」筛选求和。节点维护全网可花输出；钱包可另列待确认、尚未成熟或仅观察的款项。</p>
+<p>只看这笔书款，Bob 起初已确认 0 聪。B 入池时已确认仍为 0，待确认增加 60,000。K 接入后 B:0 转为已确认 60,000，待确认回到 0。随后，Bob 后来花掉整个 B:0，新的已确认交易不再给自己找零。这时 B 仍在历史里，B:0 对当前余额的贡献为 0。如果简单累加所有历史收款，就会重复计入已花的钱。</p>
+<h2>书款如何改变 UTXO 集？</h2>
+<p>用 <code>(前序 txid, 从 0 起算的输出编号)</code> 作键，这个二元组叫 <strong>outpoint</strong>。节点的链状态在该键下保存金额、scriptPubKey，以及创建高度、是否 coinbase 等验证所需信息。本例中 U 的键为 <code>(11 重复 32 字节, 0)</code>，值中有 100,000 聪和 Alice 的脚本。钱包还会把相关输出与自身密钥或描述符对应起来。</p>
+<table>
+<thead>
+<tr>
+<th>Bob 的节点走到哪一步</th>
+<th>可在活动链 UTXO 集里查到什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B 入内存池</td>
+<td>仍能查到 U。内存池另行登记 B 占用 U</td>
+</tr>
+<tr>
+<td>含 B 的 K 成为活动链尖</td>
+<td>连接 K 时删除 U、写入 (txid_B,0) 的 60,000 聪和 (txid_B,1) 的 39,000 聪，假定块内无人接着花它们</td>
+</tr>
+<tr>
+<td>若随后改采含 C 的分支</td>
+<td>断开旧块时撤回 B 的输出、恢复 U，连接新分支时再由 C 消耗 U</td>
+</tr>
+</tbody>
+</table>
+<p>B 的输入在线路上只引用 U，不携带 U 的金额。节点查到 100,000 聪后才能核对手续费 <code>100,000 − 60,000 − 39,000 = 1,000</code>。手续费、所有者姓名、钱包余额与确认数都无需编码成交易字段。</p>
+<h2>带见证交易的完整线格式</h2>
+<table>
+<thead>
+<tr>
+<th>顺序</th>
+<th>字段及尺寸</th>
+<th>如何定位下一项</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>version，4 字节小端整数</td>
+<td>B 取 2</td>
+</tr>
+<tr>
+<td>2</td>
+<td>marker、flag 各 1 字节，本格式为 00、01</td>
+<td>基本格式省去两者</td>
+</tr>
+<tr>
+<td>3</td>
+<td>输入数，再重复各输入</td>
+<td>每项为 32 字节前序哈希（相对常见 txid 显示逆序）、4 字节小端输出编号、scriptSig 字节长度及内容、4 字节小端 sequence</td>
+</tr>
+<tr>
+<td>4</td>
+<td>输出数，再重复各输出</td>
+<td>每项为 8 字节小端金额（聪）、scriptPubKey 字节长度及内容</td>
+</tr>
+<tr>
+<td>5</td>
+<td>每个输入各一份见证</td>
+<td>按输入顺序逐一读元素数，再读每个元素的长度和字节</td>
+</tr>
+<tr>
+<td>6</td>
+<td>locktime，4 字节小端整数</td>
+<td>交易结束</td>
+</tr>
+</tbody>
+</table>
+<p>表中的可变数量和长度都用 CompactSize。0–252 直接占 1 字节，253–65,535 写 fd 后接 2 字节小端，随后两个范围分别写 fe 后接 4 字节、ff 后接 8 字节，编码必须用最短形式。如 252 为 <code>fc</code>，253 为 <code>fdfd00</code>，300 为 <code>fd2c01</code>。因此 B:0 的 <code>16 00 14 …</code> 中，<code>16</code> 是字节长度 22，<code>14</code> 已经处在脚本内部。</p>
+<h2>完整签名样例，可直接复算</h2>
+<p>以下切换到 <strong>BIP143 的 Native P2WPKH 官方测试向量</strong>。它有两个输入（一个传统输入、一个原生见证输入）和两个传统 P2PKH 输出，与示例交易 B 的一个输入、两个 P2WPKH 输出不同。保留换行便于对照边界，空白不属于交易字节。十一行分别为版本、标记及标志、输入数、输入 0、输入 1、输出数、输出 0、输出 1、见证 0、见证 1、锁定时间。</p>
+<pre class="text"><code>01000000
+0001
+02
+fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f 00000000 49 4830450221008b9d1dc26ba6a9cb62127b02742fa9d754cd3bebf337f7a55d114c8e5cdd30be022040529b194ba3f9281a99f2b1c0a19c0489bc22ede944ccf4ecbab4cc618ef3ed01 eeffffff
+ef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a 01000000 00 ffffffff
+02
+202cb20600000000 19 76a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac
+9093510d00000000 19 76a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac
+00
+02 47 304402203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a0220573a954c4518331561406f90300e8f3358f51928d43c212a8caed02de67eebee01 21 025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee6357
+11000000</code></pre>
+<p>输入 0 的 scriptSig 长 <code>49</code>（73）字节，见证为空。输入 1 的 scriptSig 为空，见证是 <code>02</code> 项，长度分别为 <code>47</code>（71）和 <code>21</code>（33）字节。输出金额解码为 112,340,000 和 223,450,000 聪。locktime 为 17。</p>
+<p><strong>复算。</strong> 把上面十一行粘贴为 Python 多行字符串 <code>sample</code>。这是每行按字段分组的专用小实验；切换样本时应按长度字段逐项解析。</p>
+<pre class="python"><code>from hashlib import sha256
+rows = sample.strip().splitlines()
+full = bytes.fromhex(&quot; &quot;.join(rows))
+base = bytes.fromhex(&quot; &quot;.join(rows[:1] + rows[2:8] + rows[-1:]))
+def displayed_id(raw):
+    return sha256(sha256(raw).digest()).digest()[::-1].hex()
+print(len(full), len(base), displayed_id(base), displayed_id(full))</code></pre>
+<p>应得含见证 343 字节、基本格式 233 字节。txid 为 <code>e8151a2af31c368a35053ddd4bdb285a8595c769a3ad83e0fa02314a602d4609</code>，wtxid 为 <code>c36c38370907df2324d9ce9d149d191192f338b37665a82e78e76a12c909b762</code>。</p>
+<p>节点按 outpoint 精确查找旧币。即使金额相同，指向不存在输出编号的输入也无法通过检查。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、P2PKH（Pay to Public Key Hash，支付到公钥哈希）、txid（transaction identifier，交易标识）、wtxid（witness transaction identifier，含见证交易标识）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/143/#native-p2wpkh">BIP143 Native P2WPKH</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/primitives/transaction.h">固定版本交易结构</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/utxo-visualizer">Block Zero · UTXO Visualizer</a>　按 txid 载入交易，点输入追到旧输出，点已花费的输出查看后续花费。</li>
+<li><a href="https://mempool.space/zh/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">mempool.space · 高度 170 的付款</a>　对照真实输入 50 BTC 与两个输出 10 BTC、40 BTC。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/utxo/index.html">廖雪峰 · UTXO 模型</a>　用中文例子对照旧输出、找零和可用余额。</li>
+<li><a href="https://jeiwan.net/posts/building-blockchain-in-go-part-6/">Building Blockchain in Go · Transactions 2</a>　对照教学链 UTXO 集的查找和更新，实现细节以 Core 版卡片为准。</li>
+</ul>
+<p><a href="#card-06">返回概念卡 · UTXO 记账模型：输出、输入与未花费集合</a></p>
+</article>
+<article id="card-example-08">
+<h1>复算签名摘要和中间哈希</h1>
+<p>在原生 P2WPKH 花费中，BIP143 规定签名摘要的编码方式。本例使用 SIGHASH_ALL。</p>
+<p>B 是花费原生 P2WPKH 旧输出 U 的交易。生成签名之前，Alice 的签名器先为<strong>正在花 U 的这个输入</strong>生成一份 32 字节摘要。Bob 的节点以后从自己的 UTXO 视图取回 U 的真实金额与脚本，按同一规则重算摘要，再用见证内的公钥验签。签名摘要、交易标识 txid 各有自己的序列化输入。</p>
+<p><strong>在本例的 SIGHASH_ALL（0x01）下</strong>，签名器按以下次序拼字节，然后做两次 SHA-256。</p>
+<table>
+<thead>
+<tr>
+<th>顺序</th>
+<th>拼入的数据</th>
+<th>数据来自哪里</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1–3</td>
+<td>交易版本、hashPrevouts、hashSequence</td>
+<td>B 的版本，以及对全部输入的 outpoint 串、全部输入的 sequence 串分别取双 SHA-256</td>
+</tr>
+<tr>
+<td>4–7</td>
+<td>当前 outpoint、带长度的 scriptCode、前序输出金额、当前 sequence</td>
+<td>当前输入指出 U。签名器另取 U 的花费条件和 100,000 聪；金额写成 8 字节小端序</td>
+</tr>
+<tr>
+<td>8–10</td>
+<td>hashOutputs、locktime、4 字节签名类型</td>
+<td>逐个序列化全部输出并拼接后取双 SHA-256（不加输出个数），再放锁定时间和 01000000</td>
+</tr>
+</tbody>
+</table>
+<p>U 的 scriptPubKey 为「00 14 + Alice 的 20 字节公钥哈希」。签名器从 U 取该哈希，构造 25 字节脚本 76 a9 14 … 88 ac，前置长度 19（十六进制）得到此输入的序列化 scriptCode。B:0 上的 22 字节锁定脚本用的是 Bob 的公钥哈希，它通过 hashOutputs 被同一签名绑定。签名类型在摘要末尾占 4 字节，而见证内签名的末尾只附 1 字节 01。</p>
+<p><strong>可复算练习</strong>　切到 BIP143 的 Native P2WPKH 官方向量。它有两个输入，正在签的是第二个输入，旧输出为 6 BTC。以下是官方样例的两个序列化输出，可以直接用 Python 3 复算 hashOutputs。保留下方的字节顺序，结果与规范的中间值直接比。</p>
+<pre class="python"><code>from hashlib import sha256
+outputs = bytes.fromhex(
+    &quot;202cb206000000001976a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac&quot;
+    &quot;9093510d000000001976a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac&quot;
+)
+print(sha256(sha256(outputs).digest()).hexdigest())
+# 863ef3e1a92afbfdb97f31ad0fc7683ee943e9abcf2501590ff8f6551f47e5e5</code></pre>
+<p>在同一例中，规范列出的完整 hash preimage 经双 SHA-256 后应得 c37af31116d1b27caf68aae9e3ac82f1477929014d5b917657d0eb49478cb670。示例交易 B 只给了金额和角色，因此没有可据此唯一确定的签名摘要。</p>
+<p>SIGHASH_ALL 覆盖找零输出。节点从实际输出重算 hashOutputs，使用原摘要产生的签名无法授权另一个找零金额。</p>
+<p><strong>英文术语</strong>　UTXO（Unspent Transaction Output，未花费交易输出）、P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、SHA-256（Secure Hash Algorithm 256-bit）、txid（transaction identifier，交易标识）、BTC（bitcoin，比特币的单位符号）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/143/#native-p2wpkh">BIP143 · Native P2WPKH</a> · <a href="https://bips.dev/134/">BIP134 · Flexible Transactions</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/sighash/">SatoshiBench · SIGHASH flags</a>　选择 ALL、NONE 或 SINGLE，观察签名覆盖的输入和输出。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch08_signatures.adoc">Mastering Bitcoin · Digital Signatures</a>　对照签名范围与序列化摘要。</li>
+</ul>
+<p><a href="#card-08">返回概念卡 · BIP143 签名摘要与 SIGHASH_ALL</a></p>
+</article>
+<article id="card-example-09">
+<h1>验签并拆读官方见证样例</h1>
+<p>Alice 的签名器用私钥对专题 08 的摘要签名。收到 B 的全节点只需公钥、签名和自己重算的摘要，即可核对她是否授权了这次花费。</p>
+<p>在 secp256k1 曲线上，G 是约定的基点，n 是它的阶，私钥 d 的公钥为 Q = dG。把 32 字节摘要看作整数 z。以下大写字母表示点，小写字母表示整数，模 n 的逆元相当于这里用的除法。</p>
+<ol type="1">
+<li>签名器选取秘密的一次性标量 k（1 至 n−1），可用私钥和消息确定性地产生。算 R = kG，取 r = R 的横坐标 mod n。随后算 s = k⁻¹(z + rd) mod n，若 r 或 s 为零就重选。不同摘要复用同一 k 会危及私钥。</li>
+<li>签名器将 r、s 编为 DER 的两个正整数。首部 30 标记序列，每个整数以 02 和长度开头，必要时在数值前补 00 保持正号。钱包通常选较小的 s 表示（low-S）。签名器再追加一个签名类型字节。</li>
+<li>B 的该输入的见证按顺序装入两项：带 01 的 DER 签名、Alice 的压缩公钥。节点先核对公钥哈希与 U 的条件匹配，再检查 r、s 的范围。以 w = s⁻¹ mod n，计算点 X = (zw mod n)G + (rw mod n)Q；X 有限且其横坐标 mod n 等于 r，验签才通过。</li>
+</ol>
+<p><strong>拿一段真实可核字节练习。</strong> 用 BIP143 官方 Native P2WPKH 向量的第二个输入（与书款 B 分开）。见证开头 02 表示两项，47 是第一项长度 71，接下来的 30 44 是 DER 序列头。该序列含两个「02 20 + 32 字节整数」，所以 DER 共 70 字节；其后的 01 才是签名类型。第二项的长度 21 表示 33 字节，公钥以 02 开头。由 02 和 21 可以确定项数和公钥长度，签名项满足 47 = 70 + 1。</p>
+<p>验证 U 的花费既要检查公钥与 U 的哈希承诺匹配，也要用该公钥核验签名。</p>
+<p><strong>英文术语</strong>　P2WPKH（Pay to Witness Public Key Hash，支付到见证公钥哈希）、ECDSA（Elliptic Curve Digital Signature Algorithm，椭圆曲线数字签名算法）、DER（Distinguished Encoding Rules，可辨别编码规则）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/143/#native-p2wpkh">BIP143 · Native P2WPKH</a> · <a href="https://bips.dev/66/#der-encoding-reference">BIP66 · DER encoding reference</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/sha256">Block Zero · Signatures</a>　用演示密钥签署消息并核验；消息签名演示和 BIP143 交易摘要使用不同的消息构造方式。</li>
+<li><a href="https://liaoxuefeng.com/books/blockchain/bitcoin/p2p/signature/index.html">廖雪峰 · 数字签名</a>　从签名者和验证者两端看私钥、公钥与消息。</li>
+<li><a href="https://karpathy.github.io/2021/06/21/blockchain/">Karpathy · Python 签名实现</a>　阅读签名数对与 DER 编码代码。</li>
+<li><a href="https://learnmeabitcoin.com/technical/cryptography/elliptic-curve/ecdsa/">Learn Me A Bitcoin · ECDSA</a>　对照椭圆曲线点运算、签名和验证公式。</li>
+</ul>
+<p><a href="#card-09">返回概念卡 · ECDSA 签名、验证与 DER 编码</a></p>
+</article>
+<article id="card-example-10">
+<h1>追踪通告、请求和交易数据</h1>
+<p>P2P（peer-to-peer，点对点）描述节点相互连接的网络结构。Bob 通常只与全网的一小部分节点直接相连。</p>
+<ol type="1">
+<li>Alice 将签好的 B 提交给接入节点。这一步是钱包使用节点服务；接入节点接纳 B 后，才逐跳向愿意中继交易的邻居传播。建立 P2P 连接时双方握手，协商支持的能力。</li>
+<li>常见路径是邻居先发 inv 通告交易标识。协商使用 wtxid 中继时，标识覆盖见证；Bob 从这条消息知道谁声称有哪笔交易。Bob 对照本地记录，已拥有的交易可跳过。</li>
+<li>如果多个邻居通告同一标识，Bob 记录候选来源、请求时机及在途状态。Core v29.0 会考虑连接优先级、标识类型及对端的在途负载。轮到合适的来源时，Bob 发 getdata 索取交易；逾时或收到 notfound 后可从其他来源重试。</li>
+<li>对端发来 tx 消息后，Bob 才取得可解码的交易字节，检查输入、输出和签名，再按本地策略决定入池、中继并通知钱包。就算收到十次 inv，B 仍然是零确认。矿池与矿机间的作业消息、同一台电脑内的钱包回调各有自己的通道。</li>
+</ol>
+<p>被选中的邻居未返回交易数据时，节点可以向同样通告该交易的其他邻居请求。</p>
+<p><strong>英文术语</strong>　wtxid（witness transaction identifier，含见证交易标识）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/node/txdownloadman_impl.cpp#L164-L215">Core v29.0 下载调度</a> · <a href="https://bips.dev/339/">BIP339</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://btcvisual.com/experiments/network">BTCVisual · 网络传播实验</a>　切换节点连接，观察交易通告能到达哪些邻居。</li>
+<li><a href="https://developer.bitcoin.org/devguide/p2p_network.html">Bitcoin 开发指南 · P2P Network</a>　核对模拟图背后的节点发现、通告和请求流程。</li>
+<li><a href="https://cs251.stanford.edu/lectures/lecture2.pdf#page=8">Stanford CS251 · 交易传播图</a>　沿节点之间的连线跟踪交易传播。</li>
+</ul>
+<p><a href="#card-10">返回概念卡 · P2P 网络与交易中继</a></p>
+</article>
+<article id="card-example-12">
+<h1>用主网高度 170 的数据重建树根</h1>
+<p>矿池按块内交易顺序把 txid 排成一行，第一项是 coinbase。相邻两个 32 字节值按左右顺序拼接，对这 64 字节做双 SHA-256 得到父值。每层只要仍有多个值且个数为奇数，就复制该层最后一项来配对。剩一个值时，它就是写进区块头的 Merkle 根。</p>
+<p>若 Bob 已知 B 的 txid，对方只需给每层的兄弟哈希以及 B 在树中的位置，Bob 就能逐层选对拼接方向，算到根并和 K 的头比较。这是包含证明。简化支付验证（SPV）的轻客户端还要核对区块头、工作量及后续头链，并依赖其获得的链与算力等安全假设。仅有路径不能证明 U 确实未花、B 的签名有效或块内其他交易全都有效。本例的 Bob 自营全节点，会拿块体逐笔验证。</p>
+<p><strong>切到主网高度 170 复算。</strong> 这个早期区块只有 coinbase 和一笔历史付款；两者都没有隔离见证。对付款提供左侧兄弟即 coinbase 的 txid 就够了。浏览器显示标识的字节顺序与内部拼接时相反。下面用 Python 3 还原为内部字节，最后翻回显示顺序。</p>
+<pre class="python"><code>from hashlib import sha256
+coinbase = &quot;b1fea52486ce0c62bb442b530a3f0132b826c74e473d1f2c220bfa78111c5082&quot;
+payment = &quot;f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16&quot;
+pair = bytes.fromhex(coinbase)[::-1] + bytes.fromhex(payment)[::-1]
+root = sha256(sha256(pair).digest()).digest()[::-1].hex()
+print(root)
+# 7dac2c5666815c17a3b36427de37bb9d2e2c5ccec3f8633eb91a4205cb4c10ff</code></pre>
+<p><strong>回到含隔离见证交易 B 的 K。</strong> 块头的根来自 txid 树。为承诺见证数据，矿池还要算第二棵树：coinbase 的叶子按规定取 32 个零字节，其余交易用 wtxid。把此树根与 coinbase 输入见证里的 32 字节保留值依次拼接并做双 SHA-256，将结果写入 coinbase 的见证承诺输出（脚本开头 6a24aa21a9ed）。若有多个匹配输出，取索引最高者。coinbase 自己的 txid 又进入块头的树，因而工作量证明同样间接约束见证。</p>
+<p>见证由 coinbase 中的见证承诺绑定。篡改见证可能保留原 txid，但重算的见证承诺不再与块中的承诺匹配。</p>
+<p><strong>英文术语</strong>　SHA-256（Secure Hash Algorithm 256-bit）、SPV（Simplified Payment Verification，简化支付验证）、txid（transaction identifier，交易标识）、wtxid（witness transaction identifier，含见证交易标识）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/consensus/merkle.cpp">Core v29.0 Merkle 实现</a> · <a href="https://bips.dev/141/#commitment-structure">BIP141 · Commitment structure</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/merkle-tree/">SatoshiBench · 交互 Merkle 树</a>　载入区块，选一笔交易，沿兄弟哈希路径追到区块头的根。</li>
+<li><a href="https://decentralizedthoughts.github.io/2020-12-22-what-is-a-merkle-tree/">Decentralized Thoughts · Merkle 包含证明</a>　从成员证明图解读懂路径需要哪些哈希。</li>
+</ul>
+<p><a href="#card-12">返回概念卡 · Merkle 树、树根与包含证明</a></p>
+</article>
+<article id="card-example-14">
+<h1>复算创世块并推导难度调整</h1>
+<p>矿池根据候选块 K 的父链计算规定的目标，将其压缩编码填入 nBits。Bob 从同一条父链独立推算期望的 nBits，再检查哈希整数不大于解码得到的目标 T。</p>
+<p><strong>把哪些字节交给哈希函数？</strong> 按线上的顺序串接版本（4 字节）、父块哈希（32）、交易 Merkle 根（32）、时间戳（4）、nBits（4）和 nonce（4），正好 80 字节。四个整数按小端序列化。常见浏览器显示的两个 32 字节哈希需逐字节反转后写入头。第二次 SHA-256 直接读取第一次的 32 字节摘要。假设每个摘要等可能，单试成功概率为 <code>(T+1)/2²⁵⁶</code>。T 越小，预期要试的次数越多。</p>
+<p><strong>主网怎样调难度？</strong> 除创世块外，新高度不是 2016 的倍数时，沿用父块 nBits。遇到边界，取上一周期末块时间戳减首块时间戳，涵盖 2015 个间隔。把时间差限制在 3.5 至 56 天，计算 <code>旧目标 × 限制后的秒数 ÷ 1,209,600</code>，作整数除法，结果受主网最大目标限制，再编码为 nBits。对通常的正目标，nBits 高字节为指数 e，低 23 位为系数 m，e ≥ 3 时目标为 <code>m × 256^(e−3)</code>。例如 0x1d00ffff 代表 65535 × 256²⁶。节点检查目标须为正、可表示且在允许范围内。矿池把 nBits 自行放宽，即便哈希低于所填目标也通不过期望值检查。</p>
+<p><strong>回到 K。</strong> ASIC 搜索的头通过 Merkle 根绑定含 B 的交易安排。为了直接复算，以下换用<strong>主网创世块</strong>头。这里的 nonce 和哈希属于创世块。</p>
+<pre class="python"><code>from hashlib import sha256
+from struct import pack
+
+root = bytes.fromhex(&quot;4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b&quot;)
+target = 0xffff &lt;&lt; (8 * (0x1d - 3))
+for nonce in (2083236893, 2083236894):
+    header = pack(&quot;&lt;I&quot;, 1) + bytes(32) + root[::-1] + pack(&quot;&lt;III&quot;, 1231006505, 0x1d00ffff, nonce)
+    digest = sha256(sha256(header).digest()).digest()
+    print(len(header), digest[::-1].hex(), int.from_bytes(digest, &quot;little&quot;) &lt;= target)</code></pre>
+<p>创世块的区块头长 80 字节，显示哈希为 <code>000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f</code>，满足网络目标。</p>
+<p><strong>英文术语</strong>　SHA-256（Secure Hash Algorithm 256-bit）、PoW（Proof of Work，工作量证明）、ASIC（Application-Specific Integrated Circuit，专用集成电路）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/kernel/chainparams.cpp">Core v29.0 主网参数</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/pow.cpp">Core v29.0 PoW</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://satoshibench.com/learn/proof-of-work/">SatoshiBench · 区块头 PoW</a>　在浏览器中对区块头进行哈希试算。</li>
+<li><a href="https://blockzerobtc.com/tools/difficulty">Block Zero · 难度周期</a>　把头中的目标与历史难度曲线对照。</li>
+<li><a href="https://btcvisual.com/experiments/mining">BTCVisual · 挖矿实验</a>　用简化目标观察 nonce 搜索。</li>
+</ul>
+<p><a href="#card-14">返回概念卡 · 工作量证明、网络目标与 nBits</a></p>
+</article>
+<article id="card-example-18">
+<h1>计算到期高度并对照激活条件</h1>
+<p>矿工填写块头时间，节点依据父链和本地时间分别检查。时间锁则约束一笔交易最早能在哪个块出现。</p>
+<p><strong>先读三个数。</strong> 候选块 K 有高度 H、有矿工自报时间；K 的父块 P 另有 MTP，即 P 和之前最多十个祖先的块头时间排序后取中位数。主网要求 K 的时间严格大于 P 的 MTP。Core v29.0 遇到超过节点当前时间两小时的头会暂不接受，待时间推进可重新检查。矿工写 K 的时间，无法单靠这个字段把本块交易的时间锁拨快。</p>
+<table>
+<thead>
+<tr>
+<th>约束</th>
+<th>写在哪里</th>
+<th>节点怎样核对</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>绝对时间锁</td>
+<td>交易末尾的 nLockTime</td>
+<td>0 表示没有该锁。小于 500,000,000 的正值按高度解释，其余按 Unix 秒数。至少一个输入的 nSequence 不是 0xffffffff 时，需要锁值严格小于候选块高度或父块的 MTP。全体输入均为最终序号时，交易级绝对锁不起作用。</td>
+</tr>
+<tr>
+<td>相对时间锁</td>
+<td>每个输入自己的 nSequence</td>
+<td>对版本 ≥ 2 且第 31 位为 0 的输入，低 16 位给出等待量。第 22 位为 0 时按块数等待，为 1 时每单位为 512 秒。按时间时，从创建输出所在块的前一块的 MTP 起，算到候选块父块的 MTP。</td>
+</tr>
+<tr>
+<td>CLTV、CSV</td>
+<td>收款方可把操作码放入锁定条件，例如 P2WSH 所承诺的脚本</td>
+<td>CLTV 要求花费交易采用匹配类型且足够大的 nLockTime，当前输入不能为最终序号。常用 CSV 条件把同类型的相对下限加到该输入，验证版本、启用位及数值。最终能否进当前块，仍要核对上面两类交易规则。</td>
+</tr>
+</tbody>
+</table>
+<p>例如 U 创建于高度 900,000，花费它的 B 版本为 2，nSequence 为 3，nLockTime 为 0。高度差至少为 3，因此首次满足相对高度锁的候选块高度是 900,003。</p>
+<p><strong>为什么旧节点和新节点会表现不同？</strong> 软分叉在激活后收紧有效块集合。升级节点开始拒绝违反新条件的块；只认识旧规则的节点仍可把符合新规则的块当作有效。BIP 9 给出一种历史部署方法：节点按预设周期核对版本位信号，达到条件进入锁定期，之后进入 ACTIVE 才执行新规则；超时可进入 FAILED。信号用于协调部署。实施验证仍靠各节点自己的软件，具体激活方式与参数须看该次升级。BIP 68、112、113 曾联动部署。</p>
+<p><strong>英文术语</strong>　P2WSH（Pay to Witness Script Hash，支付到见证脚本哈希）、MTP（Median Time Past，过去区块时间中位数）、CLTV（Check Lock Time Verify，对应 OP_CHECKLOCKTIMEVERIFY）、CSV（Check Sequence Verify，对应 OP_CHECKSEQUENCEVERIFY）、BIP（Bitcoin Improvement Proposal，比特币改进提案）。</p>
+<p><strong>规范与实现</strong>　<a href="https://bips.dev/68/">BIP 68 相对锁</a> · <a href="https://bips.dev/113/">BIP 113 的 MTP</a> · <a href="https://bips.dev/9/">BIP 9 版本位激活</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://blockzerobtc.com/tools/script-playground">Block Zero · 时间锁脚本</a>　使用 timelock 模板，观察脚本对时间条件的检查。</li>
+<li><a href="https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch07_authorization-authentication.adoc">Mastering Bitcoin · 锁定条件</a>　查阅绝对时间锁与相对时间锁的脚本说明。</li>
+<li><a href="https://learnmeabitcoin.com/technical/transaction/locktime/">Learn Me A Bitcoin · Locktime</a>　查看高度型与时间型绝对锁的字段解释。</li>
+</ul>
+<p><a href="#card-18">返回概念卡 · 时间锁、链上时间与规则激活</a></p>
+</article>
+<article id="card-example-19">
+<h1>换算并解码金额字节</h1>
+<p>1 BTC = 100,000,000 聪（sat），所以 1 聪是 <strong>一亿分之一 BTC，即 0.00000001 BTC</strong>。千分之一 BTC 已经有 100,000 聪，恰好是 Alice 这次选中的整个旧输出 U。</p>
+<table>
+<thead>
+<tr>
+<th>这次付款中的量</th>
+<th style="text-align: right;">聪</th>
+<th style="text-align: right;">BTC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice 花掉的 U</td>
+<td style="text-align: right;">100,000</td>
+<td style="text-align: right;">0.00100000</td>
+</tr>
+<tr>
+<td>Bob 的书款 B:0</td>
+<td style="text-align: right;">60,000</td>
+<td style="text-align: right;">0.00060000</td>
+</tr>
+<tr>
+<td>Alice 的找零 B:1</td>
+<td style="text-align: right;">39,000</td>
+<td style="text-align: right;">0.00039000</td>
+</tr>
+<tr>
+<td>输入减去输出的手续费</td>
+<td style="text-align: right;">1,000</td>
+<td style="text-align: right;">0.00001000</td>
+</tr>
+</tbody>
+</table>
+<p><strong>怎么用。</strong> 从 BTC 换成聪就乘一亿，反向换算除以一亿。钱包可以切换显示单位。写入普通交易输出时，金额按整数聪编码，另有脚本规定这笔钱以后怎样花。节点读到的 B:0 前八字节是小端序的整数。用 Python 的 <code>int.from_bytes(bytes.fromhex("60 ea 00 00 00 00 00 00"), "little")</code>，结果为 60000。手续费 1,000 聪没有单独的输出，节点通过已知的 U 和两个输出求差。</p>
+<p>钱包显示的 60,000 聪和 0.00060000 BTC 对应相同的交易金额字节。</p>
+<p><strong>英文术语</strong>　BTC（bitcoin，比特币的单位符号）、sat（satoshi，聪）。</p>
+<p><strong>规范与实现</strong>　<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/consensus/amount.h#L9-L13">Bitcoin Core v29.0 的金额常量</a></p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://mempool.space/zh/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">高度 170 · 真实交易金额</a>　把首个输出的 10 BTC 对应到 1,000,000,000 聪。</li>
+<li><a href="https://mempool.space/api/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16">同一交易的 JSON</a>　查看 vout[0].value 的整数聪金额。</li>
+</ul>
+<p><a href="#card-19">返回概念卡 · 聪与 BTC 的计量关系</a></p>
+</article>
+<article id="card-example-20">
+<h1>沿付款、入池与首次确认对照两者</h1>
+<p>钱包回答「哪些钱由我控制，我要付给谁，我收到多少」。全节点回答「按我独立验证的历史，这个输出能否花，这个区块能否接入」。Bob 同机运行两者，所以一根本地通知箭头就能把后一个答案交给前者。</p>
+<table>
+<thead>
+<tr>
+<th>停在何处</th>
+<th>钱包读写什么</th>
+<th>全节点读写什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice 扫码并提交 B</td>
+<td>从自己的付款记录选 U，生成两项输出，让控制 U 的密钥签名，交出带见证的 B</td>
+<td>接入节点查 U、核对脚本和费用，按本地策略决定是否入池并中继</td>
+</tr>
+<tr>
+<td>Bob 第一次从邻居看到 B</td>
+<td>钱包得到入池通知，用自己的收款脚本认出 B:0，登记 60,000 聪待确认</td>
+<td>节点的内存池登记 B 引用 U；当前活动链 UTXO 中仍然有 U</td>
+</tr>
+<tr>
+<td>Bob 接入包含 B 的 K</td>
+<td>钱包记录 B 所在的块，从活动链位置算出首次确认</td>
+<td>节点按父块状态验 K，接入活动链时花掉 U、加入 B:0 和 B:1，通知钱包</td>
+</tr>
+</tbody>
+</table>
+<p>钱包能识别输出与能签名是两种能力。观察钱包只凭收款脚本也能跟踪 Bob 的钱；要花 B:0 时才需要相应的签名能力。运行全节点的人可以不加载任何钱包，也无需参与挖矿。没有 Bob 的私钥，他的节点依然能验证 Bob 将来花 B:0 时提供的签名。</p>
+<p>Bob 也可能首次在 K 中看到 B。节点用父块状态验块，接入后钱包可直接显示 1 次确认。</p>
+<p><strong>英文术语</strong>　UTXO（Unspent Transaction Output，未花费交易输出）。</p>
+<h2>图解与实作</h2>
+<ul>
+<li><a href="https://bitcoincore.academy/components-overview.html">Bitcoin Core Onboarding · bitcoind 与钱包组件图</a>　对照节点进程、钱包接口及各自维护的数据。</li>
+<li><a href="https://www.bitcoinaccess.org/academy/bitcoin/how-bitcoin-works">Bitcoin Access · Alice → Bob 模拟付款</a>　观察付款、传播及确认分别发生在哪里。</li>
+<li><a href="https://developer.bitcoin.org/devguide/wallets.html">Bitcoin 开发指南 · 钱包组成</a>　对照密钥管理、签名与网络通信的角色。</li>
+<li><a href="https://cs251.stanford.edu/lectures/lecture3.pdf">Stanford CS251 · 钱包课件</a>　查看密钥管理、钱包和支付的结构图。</li>
+</ul>
+<p><a href="#card-20">返回概念卡 · 钱包与全节点的职责</a></p>
+</article></main></body></html>

@@ -1,0 +1,101 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>一笔 BTC 付款的一生 · 交易图解</title><style>
+*{box-sizing:border-box}html{scroll-padding-top:1rem}body{margin:0;background:#f7f5ef;color:#192e2b;font:17px/1.85 "PingFang SC","Microsoft YaHei",sans-serif}main,header>div{max-width:1060px;margin:auto;padding:0 32px}header{background:#163e39;color:#f7f5ef;padding:48px 0 37px;border-bottom:5px solid #edac61}header small{font:600 15px/1.5 monospace;letter-spacing:.1em;color:#f1be83}h1{font:650 clamp(36px,6vw,70px)/1.18 "Songti SC","STSong",serif;margin:18px 0}header p{margin:0;color:#dbede5}nav{display:flex;gap:8px 20px;flex-wrap:wrap;border-bottom:1px solid #b8c8bc;padding:22px 0}a{color:#165f55;text-underline-offset:4px}nav a{font-size:15px;font-weight:600}section{display:grid;grid-template-columns:70px minmax(0,1fr);gap:16px;padding:36px 0;border-bottom:1px solid #b8c8bc}.num{font:46px/1.1 Georgia,serif;color:#728b7d}h2{font:650 clamp(24px,3vw,34px)/1.45 "Songti SC","STSong",serif;margin:0 0 18px}figure{margin:0;background:#e5ede5;border:1px solid #c6d4c8;padding:22px;border-radius:8px}.flow{display:flex;align-items:center;gap:10px}.flow+.flow{margin-top:12px;border-top:1px dashed #afc0b5;padding-top:12px}.box,.stack{flex:1;min-width:0}.box{background:#fffefa;border:1px solid #b9cbbd;padding:12px;border-radius:4px}.box small,.state small,.sim small{display:block;color:#506557;font-size:13px}.box b{display:block;font-size:clamp(15px,2vw,20px)}.stack{display:grid;gap:5px}.arrow{color:#317361;font-weight:bold}figcaption{font-size:14px;color:#41584b;margin-top:14px}.state,.sim{background:#f3e5cf;border-left:4px solid #ad7028;padding:10px 16px;margin-top:12px}details{border-top:1px solid #cbd5ca;padding-top:10px}summary,button{cursor:pointer;color:#155e52;font-weight:650}table{display:block;overflow:auto;border-collapse:collapse;font-size:15px}td,th{border:1px solid #bccbc0;padding:7px;text-align:left}pre{overflow:auto;padding:14px;background:#e7ece6}code{overflow-wrap:anywhere}.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}button{border:1px solid #45766b;background:#fffcf3;border-radius:4px;padding:8px}button[aria-pressed=true]{background:#205147;color:white}.sim p{margin:8px 0}footer{padding:26px 0 48px}@media(max-width:700px){main,header>div{padding:0 16px}section{display:block}.num{font-size:27px;margin-bottom:6px}figure{padding:14px}.flow{flex-direction:column;align-items:stretch;gap:4px}.arrow{transform:rotate(90deg);align-self:center}.box{padding:8px 12px}header{padding-top:32px}}
+</style><header><div><small>ALICE → BOB</small><h1>一笔 BTC 付款的一生</h1><p>Alice 用一项 100,000 聪的旧输出买书。跟着这笔 60,000 聪的付款，看 Bob 的已确认账本何时发生变化。</p></div></header><main><nav aria-label="七步导航"><a href="#s1">1 · 收款地址</a><a href="#s2">2 · 选币与找零</a><a href="#s3">3 · 交易签名</a><a href="#s4">4 · 广播与入池</a><a href="#s5">5 · 组块与挖矿</a><a href="#s6">6 · 验块与确认</a><a href="#s7">7 · 分叉与重组</a></nav><section id="s1"><div class="num">01</div><div class="content"><h2>Bob 给出地址，约定以后谁能花这笔钱</h2><figure><div class="flow"><div class="box"><small>Bob 的钱包</small><b>私钥 d</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>椭圆曲线乘法</small><b>公钥 Q = dG</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>HASH160</small><b>20 字节公钥哈希</b></div></div><div class="flow"><div class="box"><small>发给 Alice</small><b>Bech32 地址</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>Alice 解码</small><b>00 14 ＋ 公钥哈希</b></div></div><figcaption>Bob 给出收款条件，私钥始终留在钱包里。</figcaption></figure><div class="state"><small>已确认账本</small>U 仍在；B 尚未构造。</div><p>Bob 的钱包给 Alice 一个收款地址，并告诉她价格。这个例子用 P2WPKH，即一种按公钥哈希收款的方式。Bob 保存私钥，用它签名；别人用对应的公钥检查签名。哈希是从数据算出的固定长度摘要。Alice 的钱包从地址解出 Bob 的公钥哈希，把它写成一个花费条件：未来花这笔输出时，须提供匹配的公钥和有效签名。</p>
+<p>这一步解决「钱要锁给谁」。地址校验和能发现许多抄写错误，但如果有人把整个二维码换成自己的有效地址，校验仍能通过。Alice 要核对收款地址和金额。此时还没有交易上链。</p>
+<details><summary>从密钥到脚本。</summary><p>本例选用原生隔离见证的单公钥哈希付款，简称 P2WPKH。Bob 的钱包取一个私钥标量 <code>d</code>，用 secp256k1 曲线上的标量乘法算公钥点 <code>Q = dG</code>，其中 G 是公开约定的基点。随后把 Q 编码成 33 字节的压缩公钥，计算 <code>HASH160(pubkey) = RIPEMD160(SHA256(pubkey))</code>。钱包把主网前缀、见证版本 0 和这 20 字节的结果用 Bech32 编成带校验和的地址。Alice 解码并检查网络、版本、长度和校验和，得到要写进输出的脚本。<a href="https://bips.dev/173/">BIP173 地址编码</a> · <a href="https://bips.dev/141/">BIP141 见证程序</a></p>
+<p>本例的脚本是 <code>00 14 06afd46bcdfd22ef94ac122aa11f241244a37ecc</code>。按字节读，<code>00</code> 表示版本 0，<code>14</code> 是十六进制的 20，后面正好是 20 字节哈希。<strong>Bob 收钱时不用签名</strong>；将来他花这项输出时，节点才要求他出示匹配的公钥和签名。接下来 B 里出现的签名属于 Alice，因为此刻被花掉的是 Alice 的旧输出。</p>
+</details></div></section><section id="s2"><div class="num">02</div><div class="content"><h2>Alice 选出一笔旧款，写明它将变成什么</h2><figure><div class="flow"><div class="box"><small>输入 U</small><b>100,000 聪</b></div><span class="arrow" aria-hidden="true">→</span><div class="stack"><div class="box"><small>输出 B:0 · Bob</small><b>60,000 聪</b></div><div class="box"><small>输出 B:1 · Alice</small><b>39,000 聪</b></div><div class="box"><small>输入减输出 · 手续费</small><b>1,000 聪</b></div></div></div><figcaption>同一项 U 须完整花掉；输入与输出之差成为手续费。</figcaption></figure><div class="state"><small>已确认账本</small>U 仍在；两个新输出只写在草稿中。</div><p>Alice 以前收到过一项价值 100,000 聪的输出，叫 <strong>U</strong>。它在当前历史上还没被花掉，称为<strong>未花费交易输出（UTXO）</strong>。钱包把自己能花的输出加起来，才得到界面上的余额。B 的输入用「前序交易标识＋输出编号」点名 U，节点据此查到金额和原有花费条件。U 须一次用完，所以 Alice 为自己写一个找零输出。</p>
+<table>
+<thead>
+<tr>
+<th>B 如何使用 U</th>
+<th style="text-align: right;">金额</th>
+<th>今后谁能花</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输出 0，支付书款</td>
+<td style="text-align: right;">60,000 聪</td>
+<td>Bob，凭匹配的密钥</td>
+</tr>
+<tr>
+<td>输出 1，找零</td>
+<td style="text-align: right;">39,000 聪</td>
+<td>Alice，凭找零密钥</td>
+</tr>
+<tr>
+<td>输入减去全部输出的差额</td>
+<td style="text-align: right;">1,000 聪</td>
+<td>计为手续费，可由出块矿工领取</td>
+</tr>
+</tbody>
+</table>
+<p>这一步解决「花哪笔钱，钱去了哪里」。任何验证者都能复算 100,000 − 60,000 − 39,000 = 1,000。若 Alice 漏写找零却照常签名，差额就成了 40,000 聪手续费；协议能检查金额规则，只有钱包和付款人知道原本的意图。<a href="https://developer.bitcoin.org/devguide/transactions.html">交易与输出</a></p>
+<details><summary>选币、估费与序列化。</summary><p>钱包先列出自己能控制且可用的 UTXO，每项都有唯一引用 <code>(前序 txid, 输出编号)</code>、金额和脚本。选币要同时覆盖付款与预估手续费；增加输入或找零输出也会增加交易大小。多个候选可用时，一种算法是分支限界搜索（Branch and Bound）：逐项尝试选或不选，当剩余候选已无法凑够目标时停止搜索该分支。它可以用来寻找适合免找零的组合；钱包也可采用其他选择策略。本例只有一项合适的 U，直接选它并找零。<a href="https://bitcoincore.academy/coin-selection.html">Bitcoin Core 选币说明</a></p>
+<p>B 写入版本 2、一个引用 U 的输入、两个输出和锁定时间 0；输入采用最终序号 <code>ffffffff</code>，原生见证输入的 <code>scriptSig</code> 为空。U 的金额来自前序输出，输入引用本身只写交易标识和编号。Bob 的新输出按顺序写成 <code>60 ea 00 00 00 00 00 00 | 16 | 00 14 …</code>：前八字节以小端序编码 60,000 聪，<code>16</code> 表示后随 22 字节脚本。<strong>手续费和“这是找零”都没有独立字段</strong>；前者靠减法，后者是钱包知道的归属。<a href="https://developer.bitcoin.org/reference/transactions.html">交易字段参考</a></p>
+</details></div></section><section id="s3"><div class="num">03</div><div class="content"><h2>Alice 签名，授权这一次花费</h2><figure><div class="flow"><div class="stack"><div class="box"><small>旧输出 U</small><b>引用、金额、脚本</b></div><div class="box"><small>新交易 B</small><b>两个输出及其他字段</b></div></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>BIP143</small><b>签名摘要 z</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>Alice 的私钥</small><b>ECDSA 签名</b></div></div><div class="flow"><div class="box"><small>输入见证</small><b>签名 ＋ Alice 公钥</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>节点检查</small><b>公钥哈希匹配、验签通过</b></div></div><figcaption>验证 B 的签名时，节点必须查回 U 的金额和脚本。</figcaption></figure><div class="state"><small>已确认账本</small>U 仍在；Alice 已授权 B。</div><p>钱包用控制 U 的私钥，给 B 的签名摘要签名。本例采用 SIGHASH_ALL，摘要绑定 U 的引用、金额以及两个新输出等数据。钱包把签名和公钥放进交易的「见证」，供节点检查。Alice 的私钥留在钱包里。如果旁人把 Bob 的金额从 60,000 改成 61,000，节点按新内容验签，原签名就会失败。<a href="https://bips.dev/143/">BIP143 签名摘要</a></p>
+<p>现在引入贯穿全课的冲突。Alice 自己完全可以再签一笔 <strong>C</strong>，也引用 U，却把钱付回自己。两份签名都可能正确，因为两份都是她签的。<strong>签名回答了「持钥人授权了什么」，还需要一段共同认可的历史来判断「哪一次花费生效」。</strong></p>
+<details><summary>到底签哪些字节？</summary><p>对这个输入采用 BIP143 的普通 <code>SIGHASH_ALL</code>。令 H 表示连续两次 SHA-256；钱包先分别计算全部输入引用、全部输入序号和全部新输出的 H，然后依次编码以下字段，再对整体做 H，得到签名摘要 z。签名摘要、交易标识和区块哈希分别对不同的数据计算。<a href="https://bips.dev/143/">BIP143 字段与测试向量</a></p>
+<pre class="text"><code>版本 | 全部输入引用的哈希 | 全部输入序号的哈希
+     | 当前输入引用 U | U 对应的 scriptCode | U 的金额 100,000 | 当前输入序号
+     | 全部输出的哈希 | 锁定时间 | 签名模式</code></pre>
+<p>这里的 scriptCode 是按 Alice 的公钥哈希构造的传统公钥哈希检查脚本。ECDSA 签名时取保密的一次性标量 k，计算 R = kG，取其横坐标对曲线基点的阶 n 求余得到 r，再算 s = k⁻¹(z + r·d) mod n（此处 d 是 Alice 的私钥）。有效的 (r,s) 编码为签名，附上表示签名模式的字节；输入见证里放这份签名和 Alice 的公钥。</p>
+<p>验签方先用 U 核对公钥哈希，并独立重算 z。检查 r、s 的范围后，求点 (z/s)G + (r/s)Q（标量运算模 n），检查它的横坐标模 n 是否等于 r。因为 Q = dG，这个点在有效签名下重现签名者的 R 的横坐标关系。把 Bob 金额改掉会改变输出哈希和 z；Alice 主动为 C 再签一次则会得到另一份可验证的授权。可继续展开的问题是：如果两个不同摘要重用了同一个 k，为什么两条签名方程会暴露私钥？</p>
+</details></div></section><section id="s4"><div class="num">04</div><div class="content"><h2>节点传播、检查、入池，Bob 看见 0 次确认</h2><figure><div class="flow"><div class="box"><small>Alice 的节点</small><b>inv · 通告标识</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>邻居节点</small><b>getdata · 索取交易</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>Alice 的节点</small><b>tx · 交付字节</b></div></div><div class="flow"><div class="box"><small>Bob 的节点</small><b>检查 U、脚本、费用与冲突</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>本地内存池</small><b>B 等待确认</b></div></div><figcaption>消息逐跳传播，各节点独立决定是否收进自己的池。</figcaption></figure><div class="state"><small>已确认账本</small>U 仍在；B 已入池，0 次确认。</div><p>Alice 的钱包把 B 发给一个节点。节点可先向邻居通告交易标识，需要数据的邻居再索取完整交易。每个接收节点自己检查：交易能否解析，输入是否可用，签名是否满足 U 的条件，输出是否超过输入，是否与已知花费冲突。节点还按本地策略决定是否收下和转发，例如考虑单位空间的手续费。B 占用 141 虚拟字节，费率约为 1,000 ÷ 141 = 7.09 聪／虚拟字节。</p>
+<p>通过检查后，B 可以进入该节点的<strong>内存池</strong>，即它保存的未确认交易集合。Bob 此时看见付款意图，也能检查签名。另一个节点可能先看见 C，或者因费率门槛而没有收下 B。传播解决消息可达的问题，各节点的内存池可以不同。<strong>Bob 的已确认账本此时仍有 U，还没有 B 的输出 0。</strong></p>
+<details><summary>消息、验证和池状态。</summary><p>一次典型中继是 <code>inv → getdata → tx</code>：邻居先通告标识，接收方缺数据才请求，发送方再给完整字节。B 的 txid 对去掉见证的交易编码做双 SHA-256；wtxid 对带见证的完整编码做同样计算。支持相应协商的节点可以按 wtxid 通告；后续花费引用输出时仍使用 txid。<a href="https://bips.dev/339/">BIP339 按 wtxid 中继</a></p>
+<p>节点需要回答三类问题。① 数据自身是否成立？输入输出要有内容、金额在范围内、输入引用不能重复；否则把 U 写两遍就可能虚报拥有 200,000 聪。② 对当前视图能否执行？从链状态及可用未确认父交易中找输入，核对成熟度和时间锁，在各输入的前序输出上验签，并核算输入总额至少覆盖输出。③ 本节点是否愿意接受和转发？比较池内冲突、费用和资源限制。本例基础编码为 113 字节，完整编码为 223 字节，权重为 3 × 113 + 223 = 562，虚拟大小为 ⌈562/4⌉ = 141 vB。若本节点的费率门槛高于 7.09 聪/vB，B 可能进不了它的池。通过时只记录池内 B 对 U 的占用；链上的 U 仍然存在。<a href="https://bips.dev/141/">BIP141 权重</a> · <a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp">Bitcoin Core v29.0 验证实现</a></p>
+</details></div></section><section id="s5"><div class="num">05</div><div class="content"><h2>矿工选交易、组块，为一种历史顺序提供工作量</h2><figure><div class="flow"><div class="box"><small>有序交易标识</small><b>coinbase、B、…</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>两两哈希</small><b>Merkle 根</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>80 字节区块头</small><b>父块哈希、根、目标等</b></div></div><div class="flow"><div class="box"><small>改变 nonce</small><b>计算头的双 SHA-256</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>命中目标</small><b>哈希值 ≤ T</b></div></div><figcaption>矿工搜索的是区块头；每改一次 nonce，就得到一次新尝试。</figcaption></figure><div class="state"><small>已确认账本</small>U 仍在；候选块尚待节点验证和采用。</div><p>矿工以一个已知区块为父块，挑选能一起执行的交易组成候选区块。容量有限，矿工通常会考虑费率和交易依赖。若选了 B，就不能在同一块里再花一次 U。矿工还放入一笔特殊的奖励交易，可领取区块补贴和所收录交易的手续费。B 即使已经入池，也可能要再等几块。</p>
+<p>矿工把有序交易的标识逐层配对求哈希，得到一个摘要（Merkle 根），写进区块头；区块头也引用父块的哈希。本例的见证数据另由奖励交易中的承诺绑定。矿工反复改变候选数据，直到区块头的哈希值不超过规定目标，这叫<strong>工作量证明（PoW）</strong>。别人很容易复核这次结果。链接父块、绑定交易并要求工作量，使改写旧付款的人必须为修改后的块及后续历史重新竞争。矿工此时得到一个可广播的块，每个全节点仍须自行验块。<a href="https://developer.bitcoin.org/devguide/block_chain.html">区块与工作量证明</a></p>
+<details><summary>候选集合 → 两类承诺 → 工作量证明。</summary><p>矿工先在区块重量等限制内选取交易。若子交易花了尚未确认的父交易输出，想收进子交易就得把父交易放在前面，并可一起评估两者的费用。奖励交易 coinbase 放在首位，允许领取的上限是该高度的补贴加全块手续费；B 对上限贡献 1,000 聪。</p>
+<p>普通 Merkle 树的叶子是按块内顺序排列的 txid。每层将相邻两个 32 字节哈希拼接后做双 SHA-256；若该层有多个元素且数量为奇数，复制最后一个配对。逐层算到只剩一个根。给定 B、兄弟哈希及左右位置，别人可以沿途重算根来检查包含关系。本例还需绑定见证：另对 wtxid 建树，coinbase 对应的叶子按全零处理，把见证根与 32 字节保留值拼接后做双 SHA-256，结果写入 coinbase 的承诺输出。这样见证也间接绑定进区块头。<a href="https://bips.dev/141/">BIP141 见证承诺</a></p>
+<p>80 字节区块头按序包含版本、父块哈希、普通 Merkle 根、时间、压缩目标 nBits 和 32 位 nonce。矿工反复改 nonce，直到头的双 SHA-256 作为整数不大于规定目标 T。均匀哈希模型下，单次命中概率为 (T+1)/2²⁵⁶。nonce 空间用尽仍未命中时，可改变 coinbase 中的额外数据，更新 Merkle 根，获得新的头继续试。修改 Merkle 根的交易内容与反复计算头哈希是两种不同的工作；单次尝试只哈希区块头。<a href="https://developer.bitcoin.org/reference/block_chain.html">区块头与目标</a></p>
+</details></div></section><section id="s6"><div class="num">06</div><div class="content"><h2>全节点验块并采用它，Bob 才看到第一次确认</h2><figure><div class="flow"><div class="box"><small>父块状态</small><b>U 可花</b></div><span class="arrow" aria-hidden="true">→</span><div class="box"><small>执行 B</small><b>查 U、验签、删除 U</b></div><span class="arrow" aria-hidden="true">→</span><div class="stack"><div class="box"><small>新增 B:0</small><b>Bob · 60,000 聪</b></div><div class="box"><small>新增 B:1</small><b>Alice · 39,000 聪</b></div></div></div><figcaption>只有整块通过并进入活动链，这次状态更新才生效。</figcaption></figure><div class="state"><small>已确认账本</small>U 已花；Bob 的 B:0 和 Alice 的 B:1 已确认。</div><p>Bob 的节点收到块，从该块自己的父块状态出发，检查工作量、难度、数据承诺、区块限制和奖励金额，并按顺序执行每笔交易。轮到 B 时，U 必须仍存在，签名与金额必须通过；执行成功就删去 U，加入 Bob 的 60,000 聪和 Alice 的 39,000 聪。如果后面再放进 C，节点会因 U 已花而拒绝整块。矿工即使做完了工作量，也不能靠这个块让双花生效。</p>
+<p>当整块有效，而且节点采用了包含它的分支，这些变动才进入当前已确认账本，B 获得 <strong>1 次确认</strong>。即便 Bob 此前从未在内存池见过 B，他也能直接从区块验证它。Bob 现在可以构造下一笔交易，输入引用「B 的交易标识，输出 0」，用自己的私钥签名。将来这项输出被花掉，B 仍留在历史里，新的交易接着走同一套流程。</p>
+<details><summary>在父状态上执行整块。</summary><p>找到父块后，节点核对这个位置应有的难度目标、工作量和时间等头部规则，再核查交易承诺、见证承诺和区块资源限制。连接区块时，从父块的 UTXO 状态开始，按块内顺序更新一个待提交的视图。下面只跟踪 B 涉及的输出，省略块里其他交易。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp">Bitcoin Core v29.0：ConnectBlock 与输入检查</a></p>
+<pre class="text"><code>父状态       U → (100,000, Alice 的脚本)
+执行 B       查 U、验金额与脚本 → 删除 U
+             写入 (txid_B, 0) → (60,000, Bob 的脚本)
+             写入 (txid_B, 1) → (39,000, Alice 的找零脚本)
+下一笔若是 C 查 U 失败 → 整块无效，B 的临时变动也不提交</code></pre>
+<p>如果整块通过、奖励未超领且此分支成为活动链，B 到此才取得一次确认。节点从池中清理已确认交易和相关冲突；Bob 的钱包识别自己控制的输出脚本，显示已确认收款。这里可以展开<strong>区块内的执行顺序</strong>：同块晚些时候的一笔交易甚至可以合法花费新产生的 (txid_B, 0)，只要满足 Bob 的脚本。所以“B 已确认”和“B 的输出至今未花”需要分别查询。</p>
+</details></div></section><section id="s7"><div class="num">07</div><div class="content"><h2>后续块增加确认，竞争分支可能改变结果</h2><figure><div class="flow"><div class="box"><small>共同父块 P</small><b>U 可花</b></div><span class="arrow" aria-hidden="true">→</span><div class="stack"><div class="box"><small>分支甲</small><b>含 B 的块</b></div><div class="box"><small>分支乙 · 等难度</small><b>含 C 的块 → 后继块</b></div></div></div><figcaption>两条分支从同一个父块出发，在各自的历史里都只花 U 一次。</figcaption></figure><div class="sim"><small>逐步执行分支切换</small><div class="controls"><button data-k="0" aria-pressed="true">① 采用 B</button><button data-k="1" aria-pressed="false">② 撤销 B</button><button data-k="2" aria-pressed="false">③ 执行 C</button></div><p id="snapshot" aria-live="polite">当前采用分支甲。U 已花；Bob 持有 B:0，价值 60,000 聪。</p></div><p>如果含 B 的块上面又接了两个块，B 就有 3 次确认。若另一矿工在同一父块上挖出了含 C 的兄弟块，两个块各自执行时都能找到 U，各自都可能有效。节点在已验证的有效分支中采用<strong>累计工作量最大</strong>的一条。平手时，不同节点可能暂时采用不同分支。如果含 C 的分支后来累计工作量更大，Bob 的节点会发生<strong>重组</strong>：撤销旧分支的账本变动，再顺序执行新分支。</p>
+<table>
+<thead>
+<tr>
+<th>暂停在 Bob 的节点上</th>
+<th>已确认账本里的 U</th>
+<th>来自 B 的两项输出</th>
+<th>Bob 可以据此判断什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>收到 B，进入本地内存池</td>
+<td>仍在</td>
+<td>都未确认</td>
+<td>看见付款，尚有冲突交易取代它的风险</td>
+</tr>
+<tr>
+<td>采用含 B 的有效块，且两项输出尚未再花</td>
+<td>已由 B 花掉</td>
+<td>Bob 60,000；Alice 39,000</td>
+<td>这段历史已确认书款</td>
+</tr>
+<tr>
+<td>切换到含 C 的更重有效分支</td>
+<td>撤销 B 时恢复，执行 C 时再次花掉</td>
+<td>都从当前账本消失</td>
+<td>C 占用了 U；依赖 B 的后续花费也失去输入</td>
+</tr>
+</tbody>
+</table>
+<p>Alice 为 B 所作的签名仍可通过密码学验证，改变的是「当前历史里 U 给了谁」。在诚实算力占优、区块能正常传播的假设下，确认越深，竞争分支追上的可能性通常越低。协议给出可复核的确认深度，Bob 根据书的价值和能承受的损失决定何时交货；任何固定确认数都无法给出绝对终局。<a href="https://bitcoin.org/bitcoin.pdf">Bitcoin 白皮书，第 11 节</a></p>
+<details><summary>累计工作量和回滚。</summary><p>对合法目标 T，一个块贡献的工作量为 ⌊2²⁵⁶/(T+1)⌋。节点沿父指针把每块的贡献加起来。因此比较分支要看累计工作量；运气好碰到一个特别小的实际哈希，也只按该块规定的目标记工作。B 只要在活动链上，确认数就是“当前链尖高度 − B 所在块高度 + 1”；若它被移出活动链，这条公式不再适用。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/chain.cpp">Bitcoin Core v29.0：GetBlockProof</a></p>
+<p>设共同父块为 P，等难度分支甲为 P → 含 B 的块，分支乙为 P → 含 C 的块 → 又一块。乙多一块工作量。节点找到共同祖先 P，从旧链尖向后断开到 P，利用撤销记录移除旧块新增的输出并恢复被花掉的 U；再从 P 向前逐块连接乙，C 消耗 U。旧链上的普通交易若在新状态仍有效，可以重新参加入池检查；本例的 B 与 C 花费同一个 U，B 已失去可用输入。若 Bob 此前又签了花费 (txid_B, 0) 的交易，它同样会失去输入。这样就能从数据上解释，为什么持钥人的授权可以一直为真，收款的确认状态却会改变。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp">Bitcoin Core v29.0：DisconnectBlock 与分支切换</a></p>
+</details></div></section><footer><a href="0-BTC%20overview.md">阅读 Markdown 讲义</a> · <a href="../resources/BTC可视化资源.md">课程资源</a></footer></main><script>
+const states=["当前采用分支甲。U 已花；Bob 持有 B:0，价值 60,000 聪。","回滚中的临时状态：恢复 U，移除 B:0 和 B:1。此时回到共同父块 P。","连接分支乙：C 再次消耗 U；Bob 的 B:0 不存在，依赖它的后续花费也失去输入。"];
+const buttons=document.querySelectorAll("[data-k]");
+buttons.forEach(b=>b.onclick=()=>{buttons.forEach(x=>x.setAttribute("aria-pressed",String(x===b)));document.querySelector("#snapshot").textContent=states[Number(b.dataset.k)];});
+</script></html>

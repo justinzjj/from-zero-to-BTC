@@ -1,0 +1,366 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bitcoin 钱包组件架构</title>
+<style>
+:root{color-scheme:dark;--bg:#202328;--panel:#30343b;--line:#4b515c;--text:#edf0f5;--muted:#b2bbc8;--wire:#a9bcd3;--p2p:#efb775;--state:#88cec0;--event:#c4abe7}
+:root{
+ --link:#c4d3df;--dot:#424852;--canvas:#262a30;--boundary:#596471;
+ --outline:#636d7a;--focus:#fff;--secondary:#c5ced9;--detail:#292e34;
+ --button:#383f48;--button-line:#657180;--peer:#43392f;--peer-line:#ad8558
+}
+:root[data-theme="light"]{
+ color-scheme:light;--bg:#f2f4f6;--panel:#fff;--line:#bbc5cf;--text:#192837;
+ --muted:#465866;--wire:#405e7c;--p2p:#894c11;--state:#146951;--event:#6a4588;
+ --link:#36556f;--dot:#cbd3db;--canvas:#f9fafb;--boundary:#8795a3;
+ --outline:#8c99a5;--focus:#183e61;--secondary:#475866;--detail:#e7edf1;
+ --button:#fff;--button-line:#8c99a5;--peer:#fff0dc;--peer-line:#a7753c
+}
+
+
+*{box-sizing:border-box}body{margin:0;background:#eff4f5;color:#193c4b;font:16px/1.55 "PingFang SC","Microsoft YaHei",sans-serif}main{max-width:1210px;margin:auto;padding:20px clamp(14px,3vw,38px) 36px}a{color:#365d70}h1{font-size:clamp(28px,4vw,44px);letter-spacing:-.04em;margin:10px 0 2px}header p{margin:0 0 17px} .diagram{overflow:auto;background:white;border:1px solid #bccbd3;border-radius:10px;padding:5px}svg{display:block;width:100%;min-width:820px;font-family:inherit}.wire{fill:none;stroke:#526578;stroke-width:1.6}.wire.ext{stroke:#9a531e;stroke-dasharray:7 4}.tag,.column,.node text{text-anchor:middle}.tag{font-size:14px;fill:#33495c;paint-order:stroke;stroke:#fcfbff;stroke-width:5px;stroke-linejoin:round}.tag.ext{fill:#864617;stroke:white}.frame,.column{font-size:18px;fill:#34334c;font-weight:700}.node{cursor:pointer}.node rect{fill:#efecfa;stroke:#8374a5;stroke-width:1.4}.node text{font-size:17px;font-weight:650;fill:#34334c}.node .sub{font-size:13px;font-weight:400;fill:#53536a}.node:hover rect,.node:focus rect{stroke:#46316e;stroke-width:3;fill:#e3dcf5}footer{margin-top:10px;color:#536972;font-size:14px}dialog{color:inherit;border:1px solid #7995a2;border-radius:10px;padding:22px;width:min(620px,92vw);max-height:85vh}dialog::backdrop{background:#16344377}dialog h2{margin:0}dialog h3{font-size:16px;margin:14px 0 2px}dialog p{margin:6px 0}li{margin:5px 0}ul{padding-left:20px;margin:2px 0}dialog button{float:right;padding:4px 10px;cursor:pointer}nav{display:flex;gap:6px;flex-wrap:wrap;margin:15px 0}nav button{background:#fff;border:1px solid #abb9c4;padding:8px 16px;color:inherit;border-radius:6px;cursor:pointer;font:inherit}nav button[aria-pressed=true]{color:white;background:#34334c;border-color:#34334c}.steps{padding:0 0 0 25px;columns:2;column-gap:48px}.steps li{break-inside:avoid;padding:3px 0}.steps p{margin:3px 0 12px}#wallet-map[data-view="arch"] .node:is([data-id="2"],[data-id="4"],[data-id="6"],[data-id="8"]) rect{stroke:#70548b;stroke-width:2.6}details{background:white;padding:12px 16px;border:1px solid #bccbd3;border-radius:8px;margin:14px 0}summary{cursor:pointer;font-weight:650}.scroll{overflow:auto}table{border-collapse:collapse;font-size:15px}th,td{padding:10px;text-align:left;border-bottom:1px solid #d5dfe3;vertical-align:top}th:first-child{min-width:145px}section>p{margin:10px 0}button:focus-visible,summary:focus-visible{outline:3px solid #865d25}@media(max-width:650px){.steps{columns:1}} html{scrollbar-gutter:stable}
+dialog{padding:22px;border-top:5px solid #74618e}
+dialog h2{font-size:24px}
+dialog .card-question{margin:8px 0 18px;color:#475967}
+.card-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card-fields section,.card-example{background:#f2f0f7;border-radius:6px;padding:12px 14px}
+.card-fields h3,.card-example h3{margin:0 0 6px}
+.card-example{margin-top:12px;background:#fff5dc}
+dialog p{overflow-wrap:anywhere}
+@media(max-width:550px){.card-fields{grid-template-columns:1fr}}
+
+.topic-index{margin:12px 0 18px;padding:12px;background:#f2f0f7;border-radius:7px}
+.topic-index h3{margin:0 0 7px}
+dialog .topic-link,dialog #module-back{float:none;border:1px solid #9485aa;background:white;color:#493861;border-radius:5px;padding:6px 10px;font:inherit;cursor:pointer}
+dialog .topic-link{margin:3px}.topic-link:hover{background:#e6ddf1}
+#module-back{margin:0 0 12px}.topic-kind{color:#69557a;font-weight:650}
+
+:root{--gold:#e7be6d;--gold-bg:#4e4129}
+:root[data-theme=light]{--gold:#94621b;--gold-bg:#ffe7ac}
+body{background:var(--bg);color:var(--text)}
+main{max-width:1520px}a{color:var(--link)}h1{font-size:clamp(27px,3vw,42px)}
+button,select,nav button,.topic-index .topic-link{font:inherit;color:var(--text);background:var(--button);border:1px solid var(--button-line);border-radius:5px;padding:5px 12px;cursor:pointer}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+button:disabled{opacity:.4;cursor:default}nav button[aria-pressed=true]{background:var(--text);color:var(--bg)}
+.top,.controls,.detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.top{font-size:14px}.top a:nth-child(2){margin-left:auto}
+.walk,.module-detail,details,dialog{color:var(--text);background:var(--detail);border:1px solid var(--line);border-radius:8px}
+.walk,.module-detail{padding:12px 16px;margin:12px 0}.walk p{margin:8px 0 0}
+.module-detail{border-left:3px solid var(--wire)}.detail-head h2{margin:0;font-size:21px}
+.module-detail dl{background:var(--panel);display:grid;grid-template-columns:max-content 1fr;gap:8px 20px;padding:14px;border-radius:6px}
+.module-detail dt{color:var(--state);font-weight:650}.module-detail dd{margin:0}
+.diagram{background:radial-gradient(var(--dot) 1px,transparent 1px) 0 0/22px 22px;border-color:var(--line)}
+svg>rect:first-of-type{fill:var(--canvas);stroke:var(--boundary);stroke-dasharray:7 5}
+svg>rect:not(:first-of-type){fill:var(--peer);stroke:var(--peer-line)}
+.node rect{fill:var(--panel);stroke:var(--outline)}.node text,.frame,.column{fill:var(--text)}.node .sub{fill:var(--secondary);font-size:14px}
+.wire{stroke:var(--wire)}.tag{fill:var(--wire);stroke:var(--canvas)}
+.wire.ext{stroke:var(--p2p)}.tag.ext{fill:var(--p2p);stroke:var(--canvas)}
+#local path{fill:var(--wire)}#ext path{fill:var(--p2p)}
+#event path{fill:var(--event)}.wire.event{stroke:var(--event);stroke-dasharray:3 4}.tag.event{fill:var(--event)}
+[data-edge].active .wire{stroke-width:2.75}[data-edge].active .tag{font-weight:700}
+#wallet-map[data-view] .node.core rect{fill:var(--gold-bg);stroke:var(--gold);stroke-width:2.6}
+#wallet-map[data-view] .node.selected rect,#wallet-map[data-view] .node:focus-visible rect{stroke:var(--focus);stroke-width:3.5}
+.node:hover rect{fill:var(--detail);stroke:var(--focus)}
+.topic-index,.card-fields section,.card-example{color:var(--text);background:var(--panel)}
+.topic-kind,footer,.card-question{color:var(--muted)}.card-example{border-left:3px solid var(--gold)}
+dialog{border-top:4px solid var(--state);background:var(--panel)}dialog button{float:right}
+th,td{border-color:var(--line)}[hidden]{display:none!important}
+@media(max-width:600px){.module-detail dl{grid-template-columns:1fr}.module-detail dd{margin-bottom:6px}}
+
+#stage-list{display:flex;flex-wrap:wrap;gap:6px}
+#stage-list button{padding:6px 12px}
+#stage-list [aria-current="step"]{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:650}
+[data-edge].muted{opacity:.17;pointer-events:none}
+.map-header,.legend{display:flex;align-items:center;flex-wrap:wrap}
+.map-header{justify-content:space-between;gap:8px 20px;margin:16px 0}
+.map-header h1{margin:0}
+.legend{gap:6px 14px;list-style:none;padding:0;margin:0;color:var(--muted);font-size:14px}
+.legend li{display:inline-flex;align-items:center;gap:6px;margin:0}
+.legend li::before{content:"";width:22px;border-top:2px solid var(--wire)}
+.legend .key-core::before{width:15px;height:10px;background:var(--gold-bg);border:2px solid var(--gold);border-radius:2px}
+.legend .key-external::before{border-top:2px dashed var(--p2p)}
+.legend .key-event::before{border-top:3px dotted var(--event)}
+
+main{max-width:1560px;margin:auto;padding:20px clamp(14px,3vw,52px) 40px}
+main h1{font-size:clamp(27px,3vw,42px);letter-spacing:-.045em}
+.course-nav{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;margin:0 0 14px;padding:0 0 9px;border-bottom:1px solid var(--line);font-size:15px}
+.course-links{display:flex;flex-wrap:wrap;gap:4px}
+.course-nav .course-links a{display:block;margin:0;padding:5px 10px;border-radius:5px;text-decoration:none;color:var(--secondary);font-weight:600}
+.course-nav .course-links a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:inset 0 -2px #c39850}
+.course-nav a:hover{background:var(--panel)}
+.course-nav #theme{margin:0;padding:5px 10px;background:var(--button);border:1px solid var(--button-line);border-radius:6px;color:var(--text);font:inherit;cursor:pointer}
+.course-nav :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(max-width:650px){main{padding:12px}.course-nav{gap:6px}.course-nav .course-links a{padding:5px 7px}}
+a.btc-term{color:inherit;text-decoration:underline dotted;text-decoration-color:var(--focus,currentColor);text-underline-offset:.19em}
+a.btc-term:hover,a.btc-term:focus-visible{text-decoration-style:solid;outline-offset:3px}
+#stage-title{font-size:1.12rem;margin:.8rem 0 .2rem}
+#stage-roles{display:grid;grid-template-columns:minmax(9rem,max-content) 1fr;gap:.45rem 1rem;border-top:1px solid var(--line);padding-top:.65rem;margin:.7rem 0 0}
+#stage-roles dt{font-weight:650;color:var(--state)}#stage-roles dd{margin:0}
+@media(max-width:630px){#stage-roles{grid-template-columns:1fr;gap:.12rem}#stage-roles dd{margin-bottom:.45rem}}
+</style><main><nav class="course-nav" aria-label="Bitcoin 课件"><div class="course-links"><a href="btc-deployment.html">实际部署</a><a href="btc-wallet.html" aria-current="page">钱包</a><a href="btc-full-node.html">全节点</a><a href="btc-miner.html">矿机</a></div><button type="button" id="theme">切换浅色</button></nav><header class="map-header"><h1>Bitcoin 钱包组件架构</h1>
+<ul class="legend" aria-label="钱包架构图图例">
+<li class="key-core">场景核心模块</li><li class="key-external">跨钱包边界的数据</li><li>钱包内部数据</li><li class="key-event">本地事件回调</li>
+</ul></header><nav aria-label="选择钱包视图"><button aria-controls="arch" aria-pressed="true">组件架构</button><button aria-controls="alice" aria-pressed="false">Alice 付款</button><button aria-controls="bob" aria-pressed="false">Bob 收款</button></nav><section class="walk" id="walk" hidden><div id="stage-list" role="group" aria-label="选择流程步骤"></div><h2 id="stage-title"></h2><p id="story" aria-live="polite"></p><dl id="stage-roles"></dl></section>
+<div class="diagram" id="wallet-map" data-view="arch"><svg viewBox="0 0 1160 770" aria-label="钱包十个模块、内部数据与全节点边界" role="group"><defs><marker id="local" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#526578"/></marker><marker id="ext" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#9a531e"/></marker><marker id="event" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z"/></marker></defs><rect x="12" y="12" width="1136" height="610" rx="9" fill="#fcfbff" stroke="#80779f"/><text x="32" y="45" class="frame">钱包内部</text><text x="210" y="74" class="column">Alice · 付款构造</text><text x="950" y="74" class="column">Bob · 收款跟踪</text><g data-edge="quote" data-views="arch alice"><path class="wire local" d="M470 116 H320" marker-end="url(#local)"/><text x="395" y="108" class="tag local">地址、书价</text></g><g data-edge="balance" data-views="arch bob"><path class="wire local" d="M840 116 H690" marker-end="url(#local)"/><text x="765" y="108" class="tag local">余额、确认数</text></g><g data-edge="target" data-views="arch alice"><path class="wire local" d="M210 147 V205" marker-end="url(#local)"/><text x="210" y="181" class="tag local">付款目标</text></g><g data-edge="chosen" data-views="arch alice"><path class="wire local" d="M210 267 V325" marker-end="url(#local)"/><text x="210" y="300" class="tag local">U 的引用、找零金额</text></g><g data-edge="payment" data-views="arch alice"><path class="wire local" d="M100 116 H61 V356 H100" marker-end="url(#local)"/><text x="65" y="312" class="tag local">收款脚本、金额</text></g><g data-edge="draftAndU" data-views="arch"><path class="wire local" d="M210 387 V445" marker-end="url(#local)"/><text x="210" y="421" class="tag local">未签名交易、U 的资料</text></g><g data-edge="records" data-views="arch alice bob"><path class="wire local" d="M950 205 V147" marker-end="url(#local)"/><text x="950" y="181" class="tag local">相关交易记录</text></g><g data-edge="tracked" data-views="arch alice bob"><path class="wire local" d="M950 325 V267" marker-end="url(#local)"/><text x="950" y="300" class="tag local">归属、花费与冲突</text></g><g data-edge="candidates" data-views="arch alice"><path class="wire local" d="M840 130 H802 Q794 130 794 138 V166 Q794 174 786 174 H375 Q367 174 367 182 V228 Q367 236 359 236 H320" marker-end="url(#local)"/><text x="578" y="166" class="tag local">候选 UTXO 列表</text></g><g data-edge="change" data-views="arch alice"><path class="wire local" d="M470 356 H320" marker-end="url(#local)"/><text x="397" y="348" class="tag local">找零脚本</text></g><g data-edge="owned" data-views="arch bob"><path class="wire local" d="M690 356 H840" marker-end="url(#local)"/><text x="765" y="348" class="tag local">可识别的脚本</text></g><g data-edge="descriptor" data-views="arch bob"><path class="wire local" d="M580 325 V236 H840" marker-end="url(#local)"/><text x="710" y="228" class="tag local">描述符、派生进度</text></g><g data-edge="signer" data-views="arch alice"><path class="wire local" d="M540 387 V476 H320" marker-end="url(#local)"/><text x="425" y="469" class="tag local">密钥或签名器引用</text></g><g data-edge="destination" data-views="arch bob"><path class="wire local" d="M515 325 V287 H401 V147 H320" marker-end="url(#local)"/><text x="407" y="279" class="tag local">收款目的地</text></g><g data-edge="signed" data-views="arch alice"><path class="wire local" d="M210 507 V559 H470" marker-end="url(#local)"/><text x="343" y="551" class="tag local">带见证的交易 B</text></g><g data-edge="notification" data-views="arch bob"><path class="wire local" d="M690 559 H950 V387" marker-end="url(#local)"/><text x="821" y="551" class="tag local">入池交易、区块及位置</text></g><g data-edge="submit" data-views="arch alice"><path class="wire ext" d="M522 590 V647 H285 V695" marker-end="url(#ext)"/><text x="395" y="640" class="tag ext">带见证的交易字节 · 跨设备提交</text></g><g data-edge="callback" data-views="arch bob"><path class="wire ext event" d="M875 695 V670 H638 V590" marker-end="url(#event)"/><text x="827" y="663" class="tag ext event">交易与区块事件 · 进程内回调</text></g><g data-edge="qr" data-views="alice" style="display:none"><path class="wire ext" d="M580 0 V85" marker-end="url(#ext)"/><text x="662" y="64" class="tag ext">Bob 的二维码、书价</text></g><g data-edge="prevout" data-views="alice" style="display:none"><path class="wire local" d="M877 147 V196 Q877 204 869 204 H764 Q756 204 756 212 V416 Q756 424 748 424 H546 Q540 412 534 424 H360 Q352 424 352 432 V450 Q352 458 344 458 H320" marker-end="url(#local)"/><text x="637" y="416" class="tag local">另附 U 的金额、旧脚本</text></g><g data-edge="register" data-views="alice" style="display:none"><path class="wire local" d="M320 491 H985 V387" marker-end="url(#local)"/><text x="803" y="484" class="tag local">已签 B · 登记付款与找零</text></g><g data-edge="request" data-views="bob" style="display:none"><path class="wire local" d="M580 147 V325" marker-end="url(#local)"/><text x="626" y="257" class="tag local">请求新收款地址</text></g><g data-edge="address" data-views="bob" style="display:none"><path class="wire local" d="M320 116 H470" marker-end="url(#local)"/><text x="395" y="108" class="tag local">地址文本</text></g><g data-edge="showQR" data-views="bob" style="display:none"><path class="wire ext" d="M580 85 V0" marker-end="url(#ext)"/><text x="727" y="64" class="tag ext">展示二维码与书价 → Alice</text></g><g data-edge="spends" data-views="bob" style="display:none"><path class="wire local" d="M1000 267 V325" marker-end="url(#local)"/><text x="1070" y="308" class="tag local">B 与已知花费关系</text></g><g data-edge="draft" data-views="alice" style="display:none"><path class="wire local" d="M210 387 V445" marker-end="url(#local)"/><text x="210" y="421" class="tag local">未签名 B</text></g><g data-edge="sync" data-views="alice" style="display:none"><path class="wire ext" d="M285 695 V647 H522 V590" marker-end="url(#ext)"/><text x="395" y="640" class="tag ext">同步产生 U 的前序交易</text></g><g class="node" data-id="1" data-name="用户接口" transform="translate(580 116)" role="button" tabindex="0" aria-label="查看用户接口" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">① 用户接口</text><text class="sub" y="19">整数聪 · 付款草稿</text></g><g class="node" data-id="2" data-name="密钥与脚本管理" transform="translate(580 356)" role="button" tabindex="0" aria-label="查看密钥与脚本管理" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">② 密钥与脚本管理</text><text class="sub" y="19">BIP32 · HASH160 · 脚本索引</text></g><g class="node" data-id="3" data-name="地址与付款请求" transform="translate(210 116)" role="button" tabindex="0" aria-label="查看地址与付款请求" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">③ 地址与付款请求</text><text class="sub" y="19">Bech32 · polymod 校验</text></g><g class="node" data-id="4" data-name="可用币查询与选币" transform="translate(210 236)" role="button" tabindex="0" aria-label="查看可用币查询与选币" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">④ 可用币查询与选币</text><text class="sub" y="19">费用估算 · 候选 UTXO 搜索</text></g><g class="node" data-id="5" data-name="交易构造" transform="translate(210 356)" role="button" tabindex="0" aria-label="查看交易构造" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">⑤ 交易构造</text><text class="sub" y="19">CMutableTransaction · vin / vout</text></g><g class="node" data-id="6" data-name="签名与见证装配" transform="translate(210 476)" role="button" tabindex="0" aria-label="查看签名与见证装配" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">⑥ 签名与见证装配</text><text class="sub" y="19">BIP143 · secp256k1 ECDSA</text></g><g class="node" data-id="7" data-name="节点接口" transform="translate(580 559)" role="button" tabindex="0" aria-label="查看节点接口" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">⑦ 节点接口</text><text class="sub" y="19">带见证序列化 · 事件回调</text></g><g class="node" data-id="8" data-name="相关交易跟踪" transform="translate(950 356)" role="button" tabindex="0" aria-label="查看相关交易跟踪" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">⑧ 相关交易跟踪</text><text class="sub" y="19">脚本匹配 · 花费索引</text></g><g class="node" data-id="9" data-name="钱包查询" transform="translate(950 116)" role="button" tabindex="0" aria-label="查看钱包查询" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">⑨ 钱包查询</text><text class="sub" y="19">余额求和 · 确认深度</text></g><g class="node" data-id="10" data-name="钱包本地存储" transform="translate(950 236)" role="button" tabindex="0" aria-label="查看钱包本地存储" aria-haspopup="dialog"><rect x="-110" y="-31" width="220" height="62" rx="6"/><text y="-2">⑩ 钱包本地存储</text><text class="sub" y="19">SQLite · 描述符与交易记录</text></g><rect x="160" y="695" width="250" height="49" rx="5" fill="#fff5e6" stroke="#ae8455"/><text x="285" y="726" class="column">Alice 接入的全节点</text><rect x="750" y="695" width="250" height="49" rx="5" fill="#fff5e6" stroke="#ae8455"/><text x="875" y="726" class="column">Bob 自营的全节点</text></svg></div>
+<section class="module-detail" id="module-detail" hidden><div class="detail-head"><h2 id="module-title" tabindex="-1"></h2><button id="close-detail">返回当前视图</button></div><div id="module-body"></div></section><section id="arch" aria-label="组件架构"><p>十个组件各出现一次。金色标出密钥管理、选币、签名、交易跟踪四个重点。点击组件，再选择算法或数据结构，打开对应知识卡。</p></section>
+<section id="alice" aria-label="Alice 付款" hidden><ol class="steps"><li><strong>同步旧输出 U</strong><p>此前⑦同步前序交易，⑧用②的脚本索引识别属于 Alice 的输出，⑩保存交易。⑨按前序 txid 和输出编号即可找回 U 的 100,000 聪和旧脚本。</p></li><li><strong>扫码与选币</strong><p>①③解析报价。④从⑨的候选项选中 U，按本例给定费用算出 100,000 − 60,000 − 1,000 = 39,000 聪。</p></li><li><strong>组装未签名 B</strong><p>⑤把 U 的引用写入 vin[0]。vout[0] 锁给 Bob 60,000 聪，vout[1] 用②的找零脚本锁给 Alice 39,000 聪。手续费由差额得出。</p></li><li><strong>计算摘要与见证</strong><p>⑥按 SIGHASH_ALL 绑定两个输出。U 的金额与相应 scriptCode 参与 BIP143 摘要计算。见证的两项为 DER 签名附 01、Alice 的压缩公钥。</p></li><li><strong>登记与提交</strong><p>⑧⑩记录付款和找零。⑦将带见证的 B 序列化后提交给接入节点，节点自行验签并决定是否入池。本地登记和节点接受是两个事件。</p></li></ol></section>
+<section id="bob" aria-label="Bob 收款" hidden><ol class="steps"><li><strong>生成地址</strong><p>①向②取新地址。②从收款描述符取下一位置，⑩保存派生进度；③将目的地编码为 Bech32 地址，①展示报价。此时余额尚未增加。</p></li><li><strong>B 入池</strong><p>⑦接到交易 B，⑧用 B:0 的完整脚本查②的索引并命中。⑩保存 B，⑨显示待确认 60,000 聪。节点内存池登记 B 占用 U，已确认 UTXO 集仍有 U。</p></li><li><strong>采用含 B 的块</strong><p>⑦收到块及其位置，⑧更新 B 的区块记录。⑨按活动链尖高度减所在块高度再加一计算确认数。此时若块在链尖，显示 1 次确认。节点花掉 U，写入 B:0 和 B:1。</p></li><li><strong>断开旧块</strong><p>⑧撤下 B 的旧确认位置，⑨移出这笔已确认余额。节点回滚旧块并恢复 U。是否重新入池还要看新的节点事件。</p></li><li><strong>采用含 C 的分支</strong><p>C 和 B 的输入都引用 U。⑧按旧输出引用查花费索引，找到已记录的 B 并标记冲突。新链由 C 花掉 U，B 的历史记录可保留，B:0 已无法花费。</p></li></ol></section>
+<footer>外框表示钱包的职责边界。点击模块可查看职责及数据来源。源码对照采用 Bitcoin Core v29.0。 <a href="BTC交易源码导读.md">固定版本源码导读</a></footer></main>
+<dialog aria-labelledby="heading"><form method="dialog"><button>返回知识目录</button></form><p id="card-owner"></p><h2 id="heading"></h2><div id="body"></div></dialog><template id="info-1"><dl><dt>内部组成</dt><dd>扫码或手工录入、金额解析、付款确认、收款与历史显示。</dd><dt>维护或读取的数据</dt><dd>付款草稿保存地址、整数金额和可选标签。标签供本地界面显示，交易输出取用金额与脚本。</dd><dt>主要功能</dt><dd>把 BTC 文本的小数部分补足八位，再转换为整数聪。付款界面把金额和收款目的地一起交给构造模块。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-1">定点金额换算</button><button type="button" class="topic-link" data-topic="topic-2">付款草稿</button></div><p class="card-question">怎样把书价变成交易金额？</p><aside class="card-example"><h3>在交易 B 中</h3><p>0.00060000 BTC → 60,000 聪</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>钱包查询 · 余额、历史与确认数</li></ul><h3>交付的数据</h3><ul><li>地址与付款请求 · 地址文本或付款请求</li></ul></details></template><template id="info-2"><dl><dt>内部组成</dt><dd>收款与找零描述符、子密钥派生器、脚本缓存与密钥查询。这里缓存的是输出脚本（scriptPubKey），即交易输出中规定将来怎样花这笔钱的字节。Bob 的钱包用 B:0 的完整脚本查索引，命中就能识别书款；将来花费时，再从对应派生位置查找密钥或签名器。</dd><dt>维护或读取的数据</dt><dd>描述符记录脚本模板和派生规则，扩展密钥携带密钥与链码。下一个派生位置用于取新地址，脚本索引把已派生脚本关联回钱包。</dd><dt>主要功能</dt><dd>BIP32 用父扩展密钥和下标经 HMAC-SHA512 派生子密钥。公钥由 secp256k1 标量乘法 Q = dG 得到。对压缩公钥先算 SHA-256，再算 RIPEMD-160，即得 20 字节公钥哈希。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-3">BIP32 子密钥派生</button><button type="button" class="topic-link" data-topic="topic-4">HMAC-SHA512</button><button type="button" class="topic-link" data-topic="topic-5">secp256k1</button><button type="button" class="topic-link" data-topic="topic-6">压缩公钥</button><button type="button" class="topic-link" data-topic="topic-7">SHA-256</button><button type="button" class="topic-link" data-topic="topic-8">RIPEMD-160</button><button type="button" class="topic-link" data-topic="topic-9">HASH160</button><button type="button" class="topic-link" data-topic="topic-10">扩展密钥</button><button type="button" class="topic-link" data-topic="topic-11">输出描述符</button><button type="button" class="topic-link" data-topic="topic-12">脚本归属索引</button></div><p class="card-question">怎样既认得自己的钱，又能签名花掉它？</p><aside class="card-example"><h3>在交易 B 中</h3><p>付款时，②给⑤提供 Alice 的找零脚本，给⑥定位控制 U 的签名密钥。</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>钱包本地存储 · 已保存的描述符与密钥材料</li></ul><h3>交付的数据</h3><ul><li>地址与付款请求 · 收款目的地</li><li>交易构造 · 找零脚本</li><li>签名与见证装配 · 对应 U 的签名能力</li><li>相关交易跟踪 · 可识别的脚本</li><li>钱包本地存储 · 描述符和更新后的派生进度</li></ul></details></template><template id="info-3"><dl><dt>内部组成</dt><dd>付款 URI 解析器、网络与校验和检查、目的地到脚本的转换。</dd><dt>维护或读取的数据</dt><dd>目的地保存版本与见证程序。scriptPubKey 是节点以后验证花费时使用的脚本字节。金额从报价单独取得。</dd><dt>主要功能</dt><dd>从付款请求取出地址，用 Bech32 polymod 校验，检查网络和见证版本，将程序从 5 位分组还原成字节。本例是版本 0 加 20 字节公钥哈希。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-2">付款草稿</button><button type="button" class="topic-link" data-topic="topic-9">HASH160</button><button type="button" class="topic-link" data-topic="topic-13">Bech32 polymod</button><button type="button" class="topic-link" data-topic="topic-14">见证程序的位分组转换</button><button type="button" class="topic-link" data-topic="topic-15">锁定脚本 scriptPubKey</button></div><p class="card-question">地址怎样还原成收款条件？</p><aside class="card-example"><h3>在交易 B 中</h3><p>B:0 的脚本 = 00 14 06afd46bcdfd22ef94ac122aa11f241244a37ecc</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>用户接口 · 地址文本或付款请求</li><li>密钥与脚本管理 · 收款目的地</li></ul><h3>交付的数据</h3><ul><li>交易构造 · 书价 60,000 聪与 Bob 的锁定脚本</li><li>可用币查询与选币 · 付款目标</li></ul></details></template><template id="info-4"><dl><dt>内部组成</dt><dd>可用性筛选、交易大小与费用估算、候选组合搜索、找零计算。</dd><dt>维护或读取的数据</dt><dd>候选项保存 COutPoint（前序 txid 和输出编号）、金额及脚本。选币结果包含选中项和合计金额，供⑤组装输入。</dd><dt>主要功能</dt><dd>先筛出可花输出，按预计虚拟大小与费率估费。多个候选可尝试分支限界搜索，逐项选择或跳过，剩余价值不足时剪枝。本例仅有一个合适的 U，按给定费用计算找零。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-16">旧输出引用 COutPoint</button><button type="button" class="topic-link" data-topic="topic-17">分支限界搜索 BnB</button><button type="button" class="topic-link" data-topic="topic-18">按虚拟大小估费</button></div><p class="card-question">钱包怎样选出足以支付书款和费用的 U？</p><aside class="card-example"><h3>在交易 B 中</h3><p>100,000 − 60,000 − 1,000 = 39,000 聪找零</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>地址与付款请求 · 付款目标</li><li>钱包查询 · 候选 UTXO 的引用、金额与脚本</li></ul><h3>交付的数据</h3><ul><li>交易构造 · 选中的 U 与找零 39,000 聪</li></ul></details></template><template id="info-5"><dl><dt>内部组成</dt><dd>输入构造、付款与找零输出构造、版本及锁定时间设置。</dd><dt>维护或读取的数据</dt><dd>CMutableTransaction 的 vin 保存 CTxIn，每项通过 prevout 引用旧输出。vout 保存 CTxOut，每项包含整数金额和锁定脚本。</dd><dt>主要功能</dt><dd>把选中的旧输出引用放入输入数组，再把付款和找零分别组装为输出。本例固定输出顺序。原生见证输入的 scriptSig 为空。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-15">锁定脚本 scriptPubKey</button><button type="button" class="topic-link" data-topic="topic-16">旧输出引用 COutPoint</button><button type="button" class="topic-link" data-topic="topic-19">可变交易 CMutableTransaction</button><button type="button" class="topic-link" data-topic="topic-20">交易输入 CTxIn</button><button type="button" class="topic-link" data-topic="topic-21">交易输出 CTxOut</button></div><p class="card-question">怎样把付款意图写成一笔未签名交易？</p><aside class="card-example"><h3>在交易 B 中</h3><p>vin[0] 引用 U；vout[0] 给 Bob 60,000 聪；vout[1] 找零 39,000 聪。</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>地址与付款请求 · 书价 60,000 聪与 Bob 的锁定脚本</li><li>可用币查询与选币 · 选中的 U 与找零 39,000 聪</li><li>密钥与脚本管理 · 找零脚本</li></ul><h3>交付的数据</h3><ul><li>签名与见证装配 · 未签名交易和 U 的金额、脚本资料</li></ul></details></template><template id="info-6"><dl><dt>内部组成</dt><dd>签名字段准备、摘要计算、密钥定位、ECDSA 签名、见证装配。</dd><dt>维护或读取的数据</dt><dd>摘要长 32 字节。ECDSA 产生数对 (r, s)，经 DER 编码后附签名模式字节。输入见证是按顺序保存字节串的栈。</dd><dt>主要功能</dt><dd>按 BIP143 和 SIGHASH_ALL 序列化签名字段，包括 U 的金额、相应 scriptCode 及对两个输出的承诺。双 SHA-256 得到摘要，再用控制 U 的私钥进行 secp256k1 ECDSA 签名。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-5">secp256k1</button><button type="button" class="topic-link" data-topic="topic-6">压缩公钥</button><button type="button" class="topic-link" data-topic="topic-7">SHA-256</button><button type="button" class="topic-link" data-topic="topic-22">BIP143 签名摘要</button><button type="button" class="topic-link" data-topic="topic-23">scriptCode</button><button type="button" class="topic-link" data-topic="topic-24">ECDSA</button><button type="button" class="topic-link" data-topic="topic-25">DER 签名编码</button><button type="button" class="topic-link" data-topic="topic-26">见证栈</button></div><p class="card-question">Alice 究竟签了哪些数据？</p><aside class="card-example"><h3>在交易 B 中</h3><p>vin[0] 的见证 = [DER 签名附 01，Alice 的压缩公钥]</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>交易构造 · 未签名交易和 U 的金额、脚本资料</li><li>密钥与脚本管理 · 对应 U 的签名能力</li></ul><h3>交付的数据</h3><ul><li>节点接口 · 带见证的 B</li></ul></details></template><template id="info-7"><dl><dt>内部组成</dt><dd>交易提交接口、交易与区块通知入口、向钱包分派事件的回调。</dd><dt>维护或读取的数据</dt><dd>提交侧传交易字节。通知侧提供交易对象，或提供区块及其位置，使钱包能读取其中的交易。</dd><dt>主要功能</dt><dd>Alice 的接口将带见证的交易按协议字段顺序序列化并提交。Bob 的 Core 钱包通过回调接收入池、接块和断块事件，再分派给⑧。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-26">见证栈</button><button type="button" class="topic-link" data-topic="topic-27">带见证交易序列化</button><button type="button" class="topic-link" data-topic="topic-28">节点事件回调</button></div><p class="card-question">哪些数据跨过钱包与全节点的边界？</p><aside class="card-example"><h3>在交易 B 中</h3><p>Alice 跨设备提交 B；Bob 在自己的电脑上经同进程回调收到 B。</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>签名与见证装配 · 带见证的 B</li><li>全节点 · 入池交易、接块与断块通知</li></ul><h3>交付的数据</h3><ul><li>相关交易跟踪 · 入池交易、连接或断开的块及其位置</li><li>全节点 · 带见证的交易字节</li></ul></details></template><template id="info-8"><dl><dt>内部组成</dt><dd>输出归属匹配、输入花费索引、入池与区块事件处理、冲突更新。</dd><dt>维护或读取的数据</dt><dd>脚本索引用于判断归属。钱包按 txid 查交易，花费索引则把同一个旧输出引用关联到花它的已知交易。</dd><dt>主要功能</dt><dd>逐个匹配输出脚本以认出自己的收款，再逐个查输入引用以追踪花费。接块和断块时，结合这些关系更新确认位置与冲突。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-12">脚本归属索引</button><button type="button" class="topic-link" data-topic="topic-16">旧输出引用 COutPoint</button><button type="button" class="topic-link" data-topic="topic-28">节点事件回调</button><button type="button" class="topic-link" data-topic="topic-29">花费关系多值索引</button><button type="button" class="topic-link" data-topic="topic-30">钱包交易记录</button></div><p class="card-question">为什么两笔输出都付给别人，钱包也可能关心这笔交易？</p><aside class="card-example"><h3>在交易 B 中</h3><p>Alice 登记 B 并认出 B:1 找零。Bob 查脚本认出 B:0，后来查 U 发现 C 与 B 冲突。</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>节点接口 · 入池交易、连接或断开的块及其位置</li><li>密钥与脚本管理 · 可识别的脚本</li></ul><h3>交付的数据</h3><ul><li>钱包本地存储 · 相关交易、花费关系与链上位置</li></ul></details></template><template id="info-9"><dl><dt>内部组成</dt><dd>输出枚举与筛选、余额分类汇总、活动链确认深度查询。</dd><dt>维护或读取的数据</dt><dd>查询读取钱包交易、输出编号和区块位置。确认深度属于交易，是否尚可花费则针对每一项输出。</dd><dt>主要功能</dt><dd>按归属、是否已花和确认状态筛选输出，对各类别分别求和。交易位于活动链时，用链尖高度减去所在块高度再加一。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-30">钱包交易记录</button><button type="button" class="topic-link" data-topic="topic-31">确认深度</button><button type="button" class="topic-link" data-topic="topic-32">可用输出筛选与余额求和</button></div><p class="card-question">同一笔交易的确认数与可用余额怎样计算？</p><aside class="card-example"><h3>在交易 B 中</h3><p>若 B 在链尖，显示 1 次确认。Bob 花掉 B:0 后，B 的确认数仍可增长。</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>钱包本地存储 · 钱包交易记录</li></ul><h3>交付的数据</h3><ul><li>可用币查询与选币 · 候选 UTXO 的引用、金额与脚本</li><li>用户接口 · 余额、历史与确认数</li></ul></details></template><template id="info-10"><dl><dt>内部组成</dt><dd>SQLite 读写、按类型保存钱包记录、启动时加载并重建索引。</dd><dt>维护或读取的数据</dt><dd>描述符记录保存派生规则和位置，密钥资料支持派生或签名，钱包交易记录保存交易及相关状态。</dd><dt>主要功能</dt><dd>Core 描述符钱包经 SQLite 写入并读回钱包记录。启动时根据持久化资料恢复派生进度，并重建脚本与花费关系的运行时索引。</dd></dl><div class="topic-index"><h3>算法与数据结构知识卡</h3><button type="button" class="topic-link" data-topic="topic-11">输出描述符</button><button type="button" class="topic-link" data-topic="topic-30">钱包交易记录</button><button type="button" class="topic-link" data-topic="topic-33">SQLite 钱包记录</button></div><p class="card-question">钱包重启后怎样接着认出收款？</p><aside class="card-example"><h3>在交易 B 中</h3><p>从 U 的前序交易记录可取回 100,000 聪和旧锁定脚本，供 Alice 离线构造、签名。</p></aside><details><summary>模块输入与输出</summary><h3>接收的数据</h3><ul><li>相关交易跟踪 · 相关交易、花费关系与链上位置</li><li>密钥与脚本管理 · 描述符和更新后的派生进度</li></ul><h3>交付的数据</h3><ul><li>钱包查询 · 钱包交易记录</li><li>密钥与脚本管理 · 已保存的描述符与密钥材料</li></ul></details></template><template id="topic-1" data-title="定点金额换算"><p class="topic-kind">处理规则</p><h3>输入或组成</h3><p>十进制 BTC 金额，最多八位小数。</p><h3>怎样工作</h3><p>将整数部分乘以一亿，小数部分右补零到八位，再以整数相加。</p><h3>输出与使用方</h3><p>整数聪交由交易构造模块填写输出金额。</p><aside class="card-example"><h3>在交易 B 中</h3><p>0.00060000 BTC 进入交易构造时是整数 60,000 聪。</p></aside><p><a href="https://mempool.space/zh/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16" target="_blank" rel="noopener">高度 170 · 真实交易金额 ↗</a></p></template>
+<template id="topic-2" data-title="付款草稿"><p class="topic-kind">数据结构</p><p>付款草稿是钱包保存的付款意图，包含目的地、金额和可选的本地标签。</p><p>界面和交易构造器借它约定准备支付的内容，用户可以在签名前核对。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>包含目的地、整数金额和可选的本地标签。</p><h3>怎样工作</h3><p>界面将目的地和金额交给交易构造，标签可随钱包记录保存。</p><h3>输出与使用方</h3><p>地址和金额供地址解析与交易构造使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>在草稿中写“书款”，B:0 实际写入的是金额和锁定脚本。</p></aside></details><p><a href="https://bitcoincore.academy/components-overview.html" target="_blank" rel="noopener">Bitcoin Core Onboarding · bitcoind 与钱包组件图 ↗</a></p></template>
+<template id="topic-3" data-title="BIP32 子密钥派生"><p class="topic-kind">派生算法</p><h3>输入或组成</h3><p>父扩展密钥和子下标 i。</p><h3>怎样工作</h3><p>以链码为密钥做 HMAC-SHA512。对有效的私钥派生结果，将左半部作为标量与父私钥模 n 相加，右半部作为子链码。</p><h3>输出与使用方</h3><p>子扩展密钥供脚本管理器继续派生，或生成该位置的公钥。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 的收款分支按下标派生不同公钥。钱包可预先派生，下次取址只需读取缓存。</p></aside><p><a href="https://blockzerobtc.com/tools/seed-walkthrough" target="_blank" rel="noopener">Block Zero · Seed Walkthrough ↗</a></p></template>
+<template id="topic-4" data-title="HMAC-SHA512"><p class="topic-kind">算法</p><p>HMAC-SHA512（Hash-based Message Authentication Code using SHA-512）是使用密钥和 SHA-512 计算 64 字节结果的消息认证算法。</p><p>在 BIP32 中，它使相同父节点和下标可以稳定地产生相同的派生材料。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>一个密钥和一段消息。BIP32 子派生将父链码作为密钥，消息含密钥资料及下标。</p><h3>怎样工作</h3><p>用密钥参与内外两层 SHA-512 计算，得到 64 字节。BIP32 把结果分成两个 32 字节部分。</p><h3>输出与使用方</h3><p>64 字节结果供 BIP32 派生子密钥与子链码。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 的地址不直接包含这 64 字节；它们用于派生该位置的密钥资料。</p></aside></details><p><a href="https://blockzerobtc.com/tools/seed-walkthrough" target="_blank" rel="noopener">Block Zero · Seed Walkthrough ↗</a></p></template>
+<template id="topic-5" data-title="secp256k1"><p class="topic-kind">椭圆曲线</p><p>secp256k1 是规定了有限域、椭圆曲线、基点和阶的一组参数。</p><p>使用同一组参数，钱包能从私钥算出公钥，不同节点也能核验同一份签名。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>有限域上的曲线 y² = x³ + 7、基点 G、基点阶 n，以及私钥标量 d。</p><h3>怎样工作</h3><p>通过曲线上的点加和倍点计算公钥点 Q = dG。ECDSA 在同一条曲线上完成签名和验证。</p><h3>输出与使用方</h3><p>派生的公钥供收款脚本和签名验证使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 取公钥来生成收款脚本；Alice 用控制 U 的私钥在这条曲线上作 ECDSA 签名。</p></aside></details><p><a href="https://blockzerobtc.com/tools/key-generation" target="_blank" rel="noopener">Block Zero · 密钥生成 ↗</a></p></template>
+<template id="topic-6" data-title="压缩公钥"><p class="topic-kind">编码</p><p>压缩公钥是椭圆曲线公钥点的 33 字节编码。</p><p>验证者可以用横坐标和纵坐标的奇偶性还原公钥，节省传输与存储空间。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>曲线点 Q 的横、纵坐标 x 和 y。</p><h3>怎样工作</h3><p>以 02 或 03 表示 y 的奇偶性，再附上 32 字节 x，共 33 字节。</p><h3>输出与使用方</h3><p>压缩公钥交给 HASH160，或作为输入见证的一项。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 对自己的压缩公钥做 HASH160。B 的输入见证里出现的是 Alice 的压缩公钥。</p></aside></details><p><a href="https://blockzerobtc.com/tools/key-generation" target="_blank" rel="noopener">Block Zero · 密钥生成 ↗</a></p></template>
+<template id="topic-7" data-title="SHA-256"><p class="topic-kind">哈希算法</p><p>SHA-256（Secure Hash Algorithm 256-bit）是把任意长度字节串映射为 32 字节摘要的密码学哈希函数。</p><p>各节点可独立得到相同摘要，用它承诺数据内容或作为下一次哈希的输入。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>任意长度的字节串。</p><h3>怎样工作</h3><p>对消息填充并分块迭代压缩，输出固定的 32 字节摘要。</p><h3>输出与使用方</h3><p>32 字节结果供 RIPEMD-160 或第二遍 SHA-256 使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>生成 Bob 的公钥哈希时先算一次 SHA-256；计算 BIP143 签名摘要时则连续算两次。</p></aside></details><p><a href="https://blockzerobtc.com/tools/sha256" target="_blank" rel="noopener">Block Zero · SHA-256 ↗</a></p></template>
+<template id="topic-8" data-title="RIPEMD-160"><p class="topic-kind">哈希算法</p><p>RIPEMD-160 是输出 20 字节摘要的密码学哈希函数。</p><p>在 HASH160 中，它把第一轮 SHA-256 的结果映射为 P2WPKH 使用的 20 字节标识。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>任意长度的字节串。在 P2WPKH 中，这一步接收 SHA-256 产生的 32 字节。</p><h3>怎样工作</h3><p>对填充后的消息分块，用两条并行运算分支更新状态，再合并，输出 20 字节摘要。</p><h3>输出与使用方</h3><p>20 字节结果供地址编码和 P2WPKH 锁定脚本使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>这 20 字节成为 Bob 的见证程序，并原样出现在 B:0 锁定脚本末尾。</p></aside></details><p><a href="https://blockzerobtc.com/tools/sha256" target="_blank" rel="noopener">Block Zero · SHA-256 ↗</a></p></template>
+<template id="topic-9" data-title="HASH160"><p class="topic-kind">哈希组合</p><p>HASH160 是对原始字节先做 SHA-256、再对其摘要做 RIPEMD-160 的组合函数。</p><p>钱包可以在输出中承诺一个公钥，节点以后用相同计算核对花费者给出的公钥。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>本例输入是序列化后的 33 字节压缩公钥。</p><h3>怎样工作</h3><p>先计算 SHA-256，再把输出的原始字节送入 RIPEMD-160。</p><h3>输出与使用方</h3><p>20 字节公钥哈希供脚本构造和地址编码使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 得到 06afd46bcdfd22ef94ac122aa11f241244a37ecc，Alice 解码地址即可得到同一串字节。</p></aside></details><p><a href="https://blockzerobtc.com/tools/sha256" target="_blank" rel="noopener">Block Zero · SHA-256 ↗</a></p></template>
+<template id="topic-10" data-title="扩展密钥"><p class="topic-kind">数据结构</p><p>扩展密钥由密钥材料和链码组成，序列化时还携带深度、子下标等定位信息。</p><p>钱包可以从同一节点继续派生一系列子密钥，并在适当分支上仅凭扩展公钥生成收款公钥。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>密钥本体与 32 字节链码构成派生所需的核心资料。</p><h3>怎样工作</h3><p>扩展公钥可派生非硬化子公钥；硬化派生需要父私钥资料。</p><h3>输出与使用方</h3><p>子扩展密钥供钱包继续派生公钥或签名密钥。</p><aside class="card-example"><h3>在交易 B 中</h3><p>从收款分支扩展公钥可以产生后续收款目的地，签名还需要相应私钥。</p></aside></details><p><a href="https://blockzerobtc.com/tools/seed-walkthrough" target="_blank" rel="noopener">Block Zero · Seed Walkthrough ↗</a></p></template>
+<template id="topic-11" data-title="输出描述符"><p class="topic-kind">数据结构</p><p>输出描述符是描述一组输出脚本及相关密钥表达式的文本。</p><p>钱包可以按它生成、识别和恢复关注的脚本。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>wpkh(密钥表达式) 描述脚本模板。钱包另存派生范围与下一位置。</p><h3>怎样工作</h3><p>展开指定下标的密钥，并按模板生成 scriptPubKey。</p><h3>输出与使用方</h3><p>展开的脚本供收款、找零和归属索引使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 从收款分支展开脚本；Alice 从找零分支展开 B:1 的脚本。</p></aside></details><p><a href="https://blockzerobtc.com/tools/seed-walkthrough" target="_blank" rel="noopener">Block Zero · Seed Walkthrough ↗</a></p></template>
+<template id="topic-12" data-title="脚本归属索引"><p class="topic-kind">索引结构</p><p>脚本归属索引是由完整输出脚本映射到本钱包相关密钥或派生位置的本地表。</p><p>收到交易时，钱包可直接查出哪些输出与自己有关。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>以完整的 scriptPubKey 字节为查询键，关联钱包派生位置。</p><h3>怎样工作</h3><p>预先登记派生出的脚本。收到交易后，对每个输出执行精确匹配。</p><h3>输出与使用方</h3><p>匹配结果交给交易跟踪，以登记相关输出。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 查 B:0 的脚本命中；即使 B:1 金额也改成 60,000 聪，它仍是 Alice 的找零脚本。</p></aside></details><p><a href="https://bitcoincore.academy/components-overview.html" target="_blank" rel="noopener">Bitcoin Core Onboarding · bitcoind 与钱包组件图 ↗</a></p></template>
+<template id="topic-13" data-title="Bech32 polymod"><p class="topic-kind">校验算法</p><h3>输入或组成</h3><p>地址的人可读前缀展开值、数据符号和六个校验符号。</p><h3>怎样工作</h3><p>逐个处理 5 位符号，用移位和异或更新校验状态。原生见证 v0 采用 Bech32，合法完整编码的 polymod 值为 1。</p><h3>输出与使用方</h3><p>校验结果决定地址解析器能否继续处理。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Alice 可以发现地址抄错一个字符；替换成另一条合法地址仍能通过校验。</p></aside><p><a href="https://blockzerobtc.com/tools/key-generation" target="_blank" rel="noopener">Block Zero · 公钥到 Bech32 地址 ↗</a></p></template>
+<template id="topic-14" data-title="见证程序的位分组转换"><p class="topic-kind">编码</p><h3>输入或组成</h3><p>地址数据起始符号给出见证版本，其余程序数据按每组 5 位编码。</p><h3>怎样工作</h3><p>还原程序时依次积累比特，每满 8 位取出一个字节，并检查尾部填充。</p><h3>输出与使用方</h3><p>版本与程序字节交给锁定脚本构造。</p><aside class="card-example"><h3>在交易 B 中</h3><p>版本 0 加上 20 字节程序对应本例 P2WPKH。</p></aside><p><a href="https://blockzerobtc.com/tools/key-generation" target="_blank" rel="noopener">Block Zero · 公钥到 Bech32 地址 ↗</a></p></template>
+<template id="topic-15" data-title="锁定脚本 scriptPubKey"><p class="topic-kind">数据结构</p><p>scriptPubKey 是交易输出中规定未来花费条件的脚本。</p><p>节点日后用它判定引用这个输出的输入是否提供了有效授权。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>交易输出内保存的脚本字节。</p><h3>怎样工作</h3><p>本例按 OP_0、压入 20 字节的指令和公钥哈希依次组装。</p><h3>输出与使用方</h3><p>脚本写入 CTxOut，供钱包匹配和未来花费验证。</p><aside class="card-example"><h3>在交易 B 中</h3><p>B:0 的脚本为 00 14 加 Bob 的 20 字节哈希，共 22 字节。</p></aside></details><p><a href="https://blockzerobtc.com/tools/script-playground" target="_blank" rel="noopener">Block Zero · Script Playground ↗</a></p></template>
+<template id="topic-16" data-title="旧输出引用 COutPoint"><p class="topic-kind">数据结构</p><p>COutPoint 含 hash（Txid，32 字节交易标识）及 n（uint32_t，输出序号）。输入用它引用一项 UTXO（Unspent Transaction Output，未花费交易输出）。</p><p>同一笔交易的多个输出即使金额相同，也能分别查找和花费。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>前序交易标识 txid 和从 0 开始的输出编号 n。</p><h3>怎样工作</h3><p>这对字段唯一定位某笔交易的某项输出，金额与脚本从对应输出读取。</p><h3>输出与使用方</h3><p>选币和交易构造用它指定输入，跟踪模块用它查竞争花费。</p><aside class="card-example"><h3>在交易 B 中</h3><p>B 和 C 的输入引用同一个 U。Bob 正是按这对字段识别冲突。</p></aside></details><p><a href="https://blockzerobtc.com/tools/utxo-visualizer" target="_blank" rel="noopener">Block Zero · UTXO Visualizer ↗</a></p></template>
+<template id="topic-17" data-title="分支限界搜索 BnB"><p class="topic-kind">算法</p><h3>输入或组成</h3><p>候选输出组的有效价值、目标及允许的范围。</p><h3>怎样工作</h3><p>对候选组尝试选或跳过。若当前价值加上所有剩余价值仍不够，就剪掉整个分支。Core 可用它寻找适合免找零的组合。</p><h3>输出与使用方</h3><p>选币器评估搜索得到的候选组合，成功选定后交给交易构造。</p><aside class="card-example"><h3>在交易 B 中</h3><p>案例只有一个合适的 U，直接选 U 并找零；该结果并不要求 BnB 找到解。</p></aside><p><a href="https://bitcoincore.academy/coin-selection.html" target="_blank" rel="noopener">Bitcoin Core Onboarding · Coin selection ↗</a></p></template>
+<template id="topic-18" data-title="按虚拟大小估费"><p class="topic-kind">估算规则</p><h3>输入或组成</h3><p>预计的输入与输出类型、交易重量、目标费率。</p><h3>怎样工作</h3><p>根据预计重量换算虚拟字节数，再按费率估费；输入或找零输出改变时可重估。</p><h3>输出与使用方</h3><p>预计手续费供选币与找零计算使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>这里给定手续费为 1,000 聪，找零为 100,000 − 60,000 − 1,000 聪。</p></aside><p><a href="https://bitcoincore.academy/coin-selection.html" target="_blank" rel="noopener">Bitcoin Core Onboarding · Coin selection ↗</a></p></template>
+<template id="topic-19" data-title="可变交易 CMutableTransaction"><p class="topic-kind">数据结构</p><p>CMutableTransaction 是 Bitcoin Core 用于构造或修改交易的内存对象。</p><p>钱包可逐步填入输入、输出和见证，再生成可序列化的完整交易。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>版本、输入数组 vin、输出数组 vout 和锁定时间。</p><h3>怎样工作</h3><p>钱包先填输入输出，再按输入下标装入签名见证。</p><h3>输出与使用方</h3><p>未签名交易交给签名模块，签好后交给节点接口。</p><aside class="card-example"><h3>在交易 B 中</h3><p>B 的 vin 长度为 1，vout 长度为 2。本例约定输出 0 付书款，输出 1 找零。</p></aside></details><p><a href="https://blockzerobtc.com/tools/utxo-visualizer" target="_blank" rel="noopener">Block Zero · UTXO Visualizer ↗</a></p></template>
+<template id="topic-20" data-title="交易输入 CTxIn"><p class="topic-kind">数据结构</p><p>CTxIn 表示一笔交易里的一个输入，指向准备消费的旧输出。</p><p>节点用输入定位旧币，并结合输入携带的资料核验花费。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>旧输出引用 prevout、scriptSig、序号以及与该输入关联的见证。</p><h3>怎样工作</h3><p>按 prevout 指定这次消耗谁。原生 P2WPKH 的 scriptSig 为空，花费证明放入见证。</p><h3>输出与使用方</h3><p>组装好的输入加入交易的 vin。</p><aside class="card-example"><h3>在交易 B 中</h3><p>B 的输入点名 U，旧金额 100,000 聪要另从前序输出取得。</p></aside></details><p><a href="https://blockzerobtc.com/tools/utxo-visualizer" target="_blank" rel="noopener">Block Zero · UTXO Visualizer ↗</a></p></template>
+<template id="topic-21" data-title="交易输出 CTxOut"><p class="topic-kind">数据结构</p><p>CTxOut 表示一项交易输出，由金额和花费条件组成。</p><p>它将一笔可单独引用的钱与相应的授权条件绑定起来。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>整数金额 nValue 与锁定脚本 scriptPubKey。</p><h3>怎样工作</h3><p>金额按 8 字节小端序编码，随后写脚本长度及脚本字节。</p><h3>输出与使用方</h3><p>付款与找零输出按顺序加入交易的 vout。</p><aside class="card-example"><h3>在交易 B 中</h3><p>B:0 先写 60 ea 00 00 00 00 00 00，再写 16（十六进制的 22）及 Bob 的脚本。</p></aside></details><p><a href="https://blockzerobtc.com/tools/utxo-visualizer" target="_blank" rel="noopener">Block Zero · UTXO Visualizer ↗</a></p></template>
+<template id="topic-22" data-title="BIP143 签名摘要"><p class="topic-kind">摘要算法</p><p>BIP143 摘要是见证版本 0 花费中按规定字段和顺序计算的 32 字节签名消息。</p><p>签名者和验证者可以对同一次花费重建一致的消息。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>交易字段、输入下标、该输入的 scriptCode、旧输出金额及签名模式。</p><h3>怎样工作</h3><p>按规定顺序序列化字段并双 SHA-256。本例 SIGHASH_ALL 将两个新输出都绑定进摘要。</p><h3>输出与使用方</h3><p>32 字节摘要交给 ECDSA 签名器。</p><aside class="card-example"><h3>在交易 B 中</h3><p>U 的 100,000 聪参与计算。只给签名器未签名 B，仍缺少旧金额与脚本资料。</p></aside></details><p><a href="https://satoshibench.com/learn/sighash/" target="_blank" rel="noopener">SatoshiBench · SIGHASH flags ↗</a></p></template>
+<template id="topic-23" data-title="scriptCode"><p class="topic-kind">数据结构</p><p>scriptCode 是计算签名摘要时代表被花费脚本条件的一段脚本。</p><p>在原生 P2WPKH 中，它把旧输出中的公钥哈希放入规定模板，使签名承诺对应的旧币条件。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>P2WPKH 使用所花旧输出的公钥哈希构造签名用脚本。</p><h3>怎样工作</h3><p>把该哈希放入传统 P2PKH 检查模板，序列化后交给 BIP143。</p><h3>输出与使用方</h3><p>序列化的脚本纳入 BIP143 待签字段。</p><aside class="card-example"><h3>在交易 B 中</h3><p>这里使用 Alice 控制 U 的公钥哈希。Bob 的脚本属于新输出 B:0。</p></aside></details><p><a href="https://satoshibench.com/learn/sighash/" target="_blank" rel="noopener">SatoshiBench · SIGHASH flags ↗</a></p></template>
+<template id="topic-24" data-title="ECDSA"><p class="topic-kind">签名算法</p><p>ECDSA（Elliptic Curve Digital Signature Algorithm，椭圆曲线数字签名算法）是使用私钥产生签名、使用公钥核验签名的数字签名算法。</p><p>节点可检查一笔花费是否获授权，签名者无需交出私钥。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>32 字节摘要 z、私钥 d、保密的一次性标量 k。</p><h3>怎样工作</h3><p>在 secp256k1 上计算 R = kG，取 r = x(R) mod n，再求 s = k⁻¹(z + r·d) mod n，得到有效签名数对 (r,s)。</p><h3>输出与使用方</h3><p>签名数对交给 DER 编码器。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Alice 对 B 的摘要签名；节点用见证里的公钥核验。把 B:0 改为 61,000 聪会改变摘要。</p></aside></details><p><a href="https://blockzerobtc.com/tools/sha256" target="_blank" rel="noopener">Block Zero · Signatures ↗</a></p></template>
+<template id="topic-25" data-title="DER 签名编码"><p class="topic-kind">编码</p><p>DER（Distinguished Encoding Rules）签名编码用有明确类型和长度的整数序列表示 ECDSA 的 r 和 s。</p><p>签名器与验证者可以对同一串字节作一致的解析。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>ECDSA 输出的两个整数 r、s。</p><h3>怎样工作</h3><p>把它们按 DER 整数编码并组成序列，再在 DER 签名末尾附单字节签名模式。</p><h3>输出与使用方</h3><p>带模式字节的签名作为见证栈第一项。</p><aside class="card-example"><h3>在交易 B 中</h3><p>本例的模式字节是 01，即 SIGHASH_ALL。此字节位于 DER 序列之后。</p></aside></details><p><a href="https://blockzerobtc.com/tools/sha256" target="_blank" rel="noopener">Block Zero · Signatures ↗</a></p></template>
+<template id="topic-26" data-title="见证栈"><p class="topic-kind">数据结构</p><p>见证（witness）按输入组织，每个输入的见证栈（witness stack）是按规定次序排列的字节串列表。</p><p>节点借它取得满足旧输出条件的数据，P2WPKH 的两项是带模式字节的签名和公钥。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>每个输入关联一个按顺序排列的字节串列表。</p><h3>怎样工作</h3><p>序列化时先写项数，再逐项写长度与内容。</p><h3>输出与使用方</h3><p>见证交给序列化模块，节点据此验证该输入。</p><aside class="card-example"><h3>在交易 B 中</h3><p>B 的唯一输入有两项见证：带模式字节的 Alice 签名、Alice 的压缩公钥。</p></aside></details><p><a href="https://satoshibench.com/learn/segwit/" target="_blank" rel="noopener">SatoshiBench · SegWit ↗</a></p></template>
+<template id="topic-27" data-title="带见证交易序列化"><p class="topic-kind">编码</p><h3>输入或组成</h3><p>版本、输入和输出、每个输入的见证以及锁定时间。</p><h3>怎样工作</h3><p>按协议顺序写版本、标记与标志、输入数组、输出数组、各输入见证、锁定时间。</p><h3>输出与使用方</h3><p>完整字节交给接入全节点解析与验证。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Alice 把完整字节交给接入节点，节点可重新解析 B 并核验 U 的花费。</p></aside><p><a href="https://satoshibench.com/learn/segwit/" target="_blank" rel="noopener">SatoshiBench · SegWit ↗</a></p></template>
+<template id="topic-28" data-title="节点事件回调"><p class="topic-kind">接口机制</p><p>节点事件回调是在入池、接块或断块等事件发生时，由节点通知订阅组件的接口。</p><p>钱包可以随节点状态变化更新相关付款的确认和冲突记录。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>入池时提供交易，接块或断块时提供区块及位置。</p><h3>怎样工作</h3><p>Core 将事件分派给同进程的钱包，钱包从有效载荷提取相关交易并更新记录。</p><h3>输出与使用方</h3><p>事件对象交给相关交易跟踪模块。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 的节点接到含 B 的活动链区块后，钱包才把 B 的状态更新为已确认。</p></aside></details><p><a href="https://bitcoincore.academy/components-overview.html" target="_blank" rel="noopener">Bitcoin Core Onboarding · bitcoind 与钱包组件图 ↗</a></p></template>
+<template id="topic-29" data-title="花费关系多值索引"><p class="topic-kind">索引结构</p><p>花费关系多值索引把旧输出引用映射到钱包已知的花费交易，一项引用可以对应多个竞争者。</p><p>收到新交易或区块时，钱包能够用共同输入定位潜在冲突。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>以旧输出引用为键，以引用它的已知钱包交易标识为值；一个键可关联多笔交易。</p><h3>怎样工作</h3><p>记录钱包相关交易的输入。处理新区块时，用块中交易的输入查找竞争花费。</p><h3>输出与使用方</h3><p>候选竞争交易交给冲突处理逻辑。</p><aside class="card-example"><h3>在交易 B 中</h3><p>Bob 已记录 B 花 U。看到 C 花 U，就能识别 B 的冲突，即使 C 都付给 Alice。</p></aside></details><p><a href="https://satoshibench.com/learn/mempool/" target="_blank" rel="noopener">SatoshiBench · 模拟内存池 ↗</a></p></template>
+<template id="topic-30" data-title="钱包交易记录"><p class="topic-kind">数据结构</p><p>钱包交易记录将相关交易及其本地状态按 txid 关联起来。</p><p>钱包借它区分未确认、已确认和冲突的付款，并保留交易历史。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>按 txid 定位交易及其钱包状态，可关联区块哈希、高度或冲突信息。</p><h3>怎样工作</h3><p>收到入池、接块或断块事件后，更新同一笔交易的状态，保留可查询的历史。</p><h3>输出与使用方</h3><p>记录供钱包查询、余额计算及重启恢复使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>B 从待确认变为已确认，重组后又可能标为冲突。</p></aside></details><p><a href="https://bitcoincore.academy/components-overview.html" target="_blank" rel="noopener">Bitcoin Core Onboarding · bitcoind 与钱包组件图 ↗</a></p></template>
+<template id="topic-31" data-title="确认深度"><p class="topic-kind">计算规则</p><p>确认深度是从交易所在活动链区块到当前链尖的块数，包含交易所在块。</p><p>收款人可以据此了解有多少工作量区块已经覆盖这笔付款。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>当前活动链尖高度和交易所在活动链区块高度。</p><h3>怎样工作</h3><p>先检查该块仍在活动链，再算链尖高度减所在块高度加一。</p><h3>输出与使用方</h3><p>确认深度供收款界面与钱包查询使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>含 B 的块在链尖时深度为 1；断开该块时应撤下原确认。</p></aside></details><p><a href="https://bitcoin-data.github.io/stale-blocks/tree/" target="_blank" rel="noopener">Bitcoin Stale Blocks · 主网分叉树 ↗</a></p></template>
+<template id="topic-32" data-title="可用输出筛选与余额求和"><p class="topic-kind">查询算法</p><h3>输入或组成</h3><p>钱包所有的输出、已知花费、交易状态和可用性规则。</p><h3>怎样工作</h3><p>按归属和花费状态筛选，按确认等类别汇总金额。</p><h3>输出与使用方</h3><p>候选输出交给选币器，分类余额交给界面。</p><aside class="card-example"><h3>在交易 B 中</h3><p>即使 B 的确认数继续增加，已经花掉的 B:0 对可用余额的贡献仍为零。</p></aside><p><a href="https://blockzerobtc.com/tools/utxo-visualizer" target="_blank" rel="noopener">Block Zero · UTXO Visualizer ↗</a></p></template>
+<template id="topic-33" data-title="SQLite 钱包记录"><p class="topic-kind">存储结构</p><p>SQLite 钱包记录是 Core 描述符钱包持久化的、按类型组织的键值数据。</p><p>钱包重启后可以恢复描述符、派生进度和已登记交易，并重建查询索引。</p><details><summary>字段与用法</summary><h3>输入或组成</h3><p>Core 描述符钱包通过 SQLite 保存序列化的键值记录。</p><h3>怎样工作</h3><p>按记录类型持久化描述符、派生进度、密钥资料和交易；启动时读回并重建运行时索引。</p><h3>输出与使用方</h3><p>读回的钱包记录供脚本管理、交易跟踪与查询使用。</p><aside class="card-example"><h3>在交易 B 中</h3><p>重启后，Bob 仍能识别已派生的脚本，并恢复此前记录的 B。</p></aside></details><p><a href="https://bitcoincore.academy/components-overview.html" target="_blank" rel="noopener">Bitcoin Core Onboarding · bitcoind 与钱包组件图 ↗</a></p></template>
+<script>
+const byId = id => document.getElementById(id);
+const map = byId('wallet-map');
+const viewButtons = [...document.querySelectorAll('nav button[aria-controls]')];
+const edges = [...map.querySelectorAll('[data-edge]')];
+const nodes = [...map.querySelectorAll('.node')];
+const labels = new Map(edges.map(edge => [edge.dataset.edge, edge.querySelector('text').textContent]));
+const architectureHighlights = [2,4,6,8];
+const steps = {
+  alice: [
+    {roles:[
+      [7, "同步产生 U 的前序交易，把交易对象交给跟踪模块。"],
+      [2, "用描述符和派生下标生成可识别的输出脚本，维护脚本索引。"],
+      [8, "逐个读取前序交易的输出，用完整 scriptPubKey 查索引，认出属于 Alice 的 U。"],
+      [10, "持久化相关交易；Core 描述符钱包使用 SQLite 键值记录。"],
+      [9, "按前序 txid 和输出序号定位 U，读得 100,000 聪和旧脚本。"]
+    ], lines:['sync','notification','owned','tracked','records'], labels:{notification:'产生 U 的前序交易', tracked:'U 的归属与前序交易'}},
+    {roles:[
+      [1, "读取二维码中的地址与书价，把 0.00060000 BTC 精确换算为 60,000 聪，建立付款草稿。"],
+      [3, "解析付款请求，检查网络、Bech32 校验和及见证程序长度，将收款目的地交给构造模块。"],
+      [9, "从钱包记录筛出可用于本次付款的未花输出，提供金额和 outpoint。"],
+      [4, "结合费率和预计虚拟大小选择输入。Core 可用分支限界搜索候选组合。本例选 U，预留 1,000 聪费用。"]
+    ], lines:['qr','quote','target','candidates']},
+    {roles:[
+      [4, "交出选中的 U 及找零额 100,000 − 60,000 − 1,000 = 39,000 聪。"],
+      [3, "提供 Bob 地址对应的收款脚本。"],
+      [2, "在 Alice 自己的内部派生分支取新位置，生成找零脚本，留存识别和将来签名所需的资料。"],
+      [5, "组装 CMutableTransaction。vin[0] 引用整个 U，vout[0] 写 60,000 聪与 Bob 的脚本，vout[1] 写 39,000 聪与 Alice 的找零脚本。链上两个输出格式相同。"]
+    ], lines:['chosen','payment','change']},
+    {roles:[
+      [5, "把未签名 B 和 U 的前序输出资料交给签名器。"],
+      [2, "按 U 的脚本找到对应密钥或签名器引用。由 Alice 控制 U 的私钥授权这次花费。"],
+      [6, "本例花原生 P2WPKH 输出。按 BIP143 将 U 的金额、对应的 scriptCode 及 SIGHASH_ALL 覆盖的两个新输出等字段编码后做双 SHA-256。用私钥对 32 字节摘要做 ECDSA 签名；见证依次装入 DER 签名附 01、Alice 的压缩公钥。scriptSig 为空。节点取公钥验签，私钥留在签名端。"]
+    ], lines:['draft','prevout','signer','signed'],labels:{signed:'带见证的交易 B'}},
+    {roles:[
+      [6, "交出带见证的 B。"],
+      [8, "登记 B 花 U 的关系，匹配 B:1 的找零脚本，把 39,000 聪认作 Alice 自己的输出。"],
+      [10, "保存交易及本地记录，供重启恢复。"],
+      [7, "按带见证格式序列化 B 并提交给接入节点；节点独立决定是否接纳。"]
+    ], lines:['signed','register','tracked','submit'],labels:{tracked:'付款记录、B:1 找零归属'}}
+  ],
+  bob: [
+    {roles:[
+      [1, "请求新地址，向买家展示收款二维码和 60,000 聪书价。"],
+      [2, "取收款分支下一个子公钥。采用助记词的钱包可由 BIP39 种子建立 BIP32 密钥树，再按 BIP84 的外部分支派生；本次取址可直接用已派生的公钥。"],
+      [10, "持久化描述符和派生进度，重启后仍可识别这次给出的脚本。"],
+      [3, "对压缩公钥算 HASH160 得到 20 字节，用主网前缀 bc、见证版本 0 和 Bech32 校验和编码地址。此时还没有收款输出。"]
+    ], lines:['request','destination','address','descriptor','showQR']},
+    {roles:[
+      [7, "收到本机节点的入池回调，交付完整交易 B。"],
+      [2, "提供 Bob 钱包已派生的完整收款脚本索引。"],
+      [8, "扫描 B 的输出，按脚本字节匹配出 B:0。记录 outpoint (B 的 txid, 0)，并索引 B 的输入所引用的 U。"],
+      [10, "保存 B 的钱包交易记录。"],
+      [9, "只汇总属于本钱包、尚未花掉且符合当前分类的输出；这笔 60,000 聪进入待确认项。"],
+      [1, "显示待确认书款，确认数为 0。"]
+    ], lines:['callback','notification','owned','tracked','records','balance'],labels:{callback:'B 入池 · 同进程回调',notification:'入池交易 B',tracked:'B:0 属于 Bob',balance:'60,000 聪 · 0 次确认'}},
+    {roles:[
+      [7, "交付接入活动链的 K 及其位置。"],
+      [8, "找到 B，把所在块哈希和高度写入交易状态。"],
+      [10, "保存更新后的同一笔记录。"],
+      [9, "验证块仍在活动链，按链尖高度 − 所在高度 + 1 算深度。B:0 尚未花费时，60,000 聪从待确认转为已确认，只算一次。"],
+      [1, "显示 1 次确认。"]
+    ], lines:['callback','notification','tracked','records','balance'],labels:{callback:'连接含 B 的块 · 同进程回调',notification:'含 B 的块、哈希与高度',tracked:'B 的区块位置',balance:'60,000 聪 · 1 次确认'}},
+    {roles:[
+      [7, "当节点为改采累计工作量更高的有效分支而从活动链尖撤下 K，交付断开的块及位置。节点利用撤销记录恢复父块的 UTXO 状态。"],
+      [8, "找到原先在 K 中的 B，撤下原确认位置；后续是否重新入池或发生冲突取决于新链和节点策略。"],
+      [10, "保存 B 的状态变化，保留历史记录。"],
+      [9, "从已确认项移出 B:0 的 60,000 聪。"],
+      [1, "撤下原来的 1 次确认。"]
+    ], lines:['callback','notification','tracked','records','balance'],labels:{callback:'断开旧块 · 同进程回调',notification:'断开的旧块及位置',tracked:'撤下原确认位置',balance:'已确认余额扣除书款'}},
+    {roles:[
+      [7, "交付新活动链中包含 C 的区块。"],
+      [8, "C 是新块里与 B 竞争的另一笔交易。用 C 输入的完整 outpoint（前序 txid 和输出编号）查花费索引，找到也引用 U 的 B，把 B 标为冲突。"],
+      [10, "持久化冲突状态和区块位置。"],
+      [9, "新链上 U 已由 C 花费，汇总可用输出时排除 B:0。"],
+      [1, "保留交易历史，显示这笔书款发生冲突。"]
+    ], lines:['callback','notification','spends','tracked','records','balance'],labels:{callback:'连接含 C 的块 · 同进程回调',notification:'含 C 的块、C 的输入 U',tracked:'B 与 C 冲突',balance:'B:0 已不可用'}}
+  ]
+};
+const explanations = {};
+for (const name of Object.keys(steps)) {
+  const list = byId(name).querySelector('.steps');
+  explanations[name] = [...list.children].map(item => ({
+    title:item.querySelector('strong').textContent,
+    text:item.querySelector('p').textContent
+  }));
+  list.hidden = true;
+}
+let view = 'arch';
+const position = {alice:0, bob:0};
+let selected = null;
+let originalY = 0;
+
+function render() {
+  const walking = view !== 'arch';
+  map.dataset.view = view;
+  byId('walk').hidden = !walking;
+  for (const button of viewButtons) {
+    const active = button.getAttribute('aria-controls') === view;
+    button.setAttribute('aria-pressed', String(active));
+    byId(button.getAttribute('aria-controls')).hidden = !active;
+  }
+  const stage = walking ? steps[view][position[view]] : null;
+  for (const edge of edges) {
+    const key = edge.dataset.edge;
+    const current = walking && stage.lines.includes(key);
+    const visible = walking
+      ? steps[view].some(step => step.lines.includes(key))
+      : edge.dataset.views.split(' ').includes('arch');
+    edge.style.display = visible ? '' : 'none';
+    edge.classList.toggle('active', current);
+    edge.classList.toggle('muted', walking && visible && !current);
+    edge.querySelector('text').textContent = stage?.labels?.[key] || labels.get(key);
+  }
+  const participants = stage ? stage.roles.map(([id]) => id) : architectureHighlights;
+  for (const node of nodes) node.classList.toggle('core', participants.includes(Number(node.dataset.id)));
+  document.querySelector('.key-core').textContent = walking ? '本步骤参与模块' : '架构重点模块';
+  if (walking) {
+    for (const [i, button] of [...byId('stage-list').children].entries()) {
+      button.setAttribute('aria-current', i === position[view] ? 'step' : 'false');
+    }
+    const explanation = explanations[view][position[view]];
+    byId('stage-title').textContent = explanation.title;
+    byId('story').textContent = explanation.text;
+    const roles = byId('stage-roles');
+    roles.replaceChildren();
+    for (const [id, work] of stage.roles) {
+      const name = document.createElement('dt');
+      name.textContent = map.querySelector('.node[data-id="'+id+'"] text').textContent;
+      const detail = document.createElement('dd');
+      detail.textContent = work;
+      roles.append(name, detail);
+    }
+
+  }
+}
+
+function closeDetail(restore = true) {
+  if (!selected) return;
+  const node = selected;
+  node.classList.remove('selected');
+  byId('module-detail').hidden = true;
+  selected = null;
+  if (restore) {
+    node.focus({preventScroll:true});
+    window.scrollTo(0, originalY);
+  }
+}
+for (const button of viewButtons) button.onclick = () => {
+  closeDetail(false);
+  view = button.getAttribute('aria-controls');
+  if (view !== 'arch') {
+    byId('stage-list').replaceChildren(...explanations[view].map((step, i) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.textContent = (i + 1) + '　' + step.title;
+      option.onclick = () => move(i);
+      return option;
+    }));
+  }
+  render();
+};
+function move(index) {
+  closeDetail(false);
+  position[view] = index;
+  render();
+}
+byId('close-detail').onclick = () => closeDetail();
+map.addEventListener('click', event => {
+  const node = event.target.closest('.node');
+  if (!node) { closeDetail(false); return; }
+  if (!selected) originalY = window.scrollY;
+  selected?.classList.remove('selected');
+  selected = node;
+  node.classList.add('selected');
+  byId('module-title').textContent = node.querySelector('text').textContent;
+  byId('module-body').replaceChildren(byId('info-'+node.dataset.id).content.cloneNode(true));
+  byId('module-detail').hidden = false;
+  byId('module-title').focus({preventScroll:true});
+  byId('module-detail').scrollIntoView({block:'start'});
+});
+for (const node of nodes) node.onkeydown = event => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    node.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  }
+};
+const card = document.querySelector('dialog');
+byId('module-body').addEventListener('click', event => {
+  const link = event.target.closest('[data-topic]');
+  if (!link) return;
+  const topic = byId(link.dataset.topic);
+  byId('card-owner').textContent = byId('module-title').textContent;
+  byId('heading').textContent = topic.dataset.title;
+  byId('body').replaceChildren(topic.content.cloneNode(true));
+  card.showModal();
+  card.scrollTop = 0;
+});
+
+render();
+
+function setLessonTheme(mode) {
+  const light = mode === 'light';
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  const button = document.getElementById('theme');
+  button.textContent = light ? '切换深色' : '切换浅色';
+  // Carry the setting even when file URLs have isolated storage.
+  for (const link of document.querySelectorAll('.course-links a, a[data-lesson]')) {
+    const url = new URL(link.href);
+    url.searchParams.set('theme', document.documentElement.dataset.theme);
+    link.setAttribute('href', url.pathname.split('/').pop() + url.search + url.hash);
+  }
+}
+let lessonTheme = new URLSearchParams(location.search).get('theme');
+if (!['light', 'dark'].includes(lessonTheme)) {
+  try { lessonTheme = localStorage.getItem('btc-course-theme') || localStorage.getItem('btc-full-node-theme') || localStorage.getItem('btc-wallet-theme'); } catch {}
+}
+setLessonTheme(lessonTheme);
+document.getElementById('theme').onclick = () => {
+  setLessonTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  const url = new URL(location.href);
+  url.searchParams.set('theme', document.documentElement.dataset.theme);
+  try { history.replaceState(null, '', url); } catch {}
+  try { localStorage.setItem('btc-course-theme', document.documentElement.dataset.theme); } catch {}
+};
+</script>
+<script src="知识卡片/术语引用.js"></script></html>

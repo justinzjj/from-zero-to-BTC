@@ -23,6 +23,10 @@
 
 ## 专题讲解与交互演示
 
+- **Block Zero · 互动工具集** 在浏览器里动手做 Bitcoin 实验。可以生成密钥和地址，逐条执行脚本看栈怎样变化，也可以改变 nonce，尝试找到满足目标的区块头哈希。[浏览全部工具](https://blockzerobtc.com/tools)
+- **Block Zero · UTXO Visualizer** 把真实交易的输入和输出画成可点选的图。选高度 170 的付款，点输入查它花了哪一项旧输出，再点已花费的输出，追到下一笔引用它的交易。[打开交易输入输出图](https://blockzerobtc.com/tools/utxo-visualizer)
+- **SatoshiBench · 交互式 Bitcoin Merkle 树** 按高度或哈希载入区块，点选底部的一笔交易，沿高亮路径逐层找到块头中的 Merkle 根。讲轻客户端时，可让学生指出每层需要对端提供哪个兄弟哈希。[打开 Merkle 树](https://satoshibench.com/learn/merkle-tree/)
+- **Visualize Bitcoin · 比特币的 3D 互动世界** 把交易、内存池、矿工和区块画成可以走近观察的场景。适合第一讲开场，让学生跟着一笔模拟付款，看它在哪里等待打包、什么时候获得第一次确认。[进入 3D 世界](https://visualizebitcoin.org/world)
 - **3Blue1Brown · 比特币究竟怎样工作** 从朋友间的共享账本开始，逐次引入冒签、重复花费和账本分歧，让读者理解为什么需要数字签名与工作量证明。[动画与配套图文](https://www.3blue1brown.com/lessons/bitcoin/)
 - **Bitcoin Access · How Bitcoin Works** 学院把区块链、钱包、节点、挖矿和共识分题讲解；这一页的模拟器适合追踪一笔付款，逐步看节点何时验证交易、矿工何时组块、收款何时获得确认。[Alice → Bob 交易模拟器](https://www.bitcoinaccess.org/academy/bitcoin/how-bitcoin-works)
 - **The Bitcoin Transaction Life Cycle** 一张可投影的流程图，用两条线索串起用户操作与后台处理，从扫码付款、签名、广播一直画到首次确认及后续确认。[作者的高清信息图](https://www.bitcoindesigned.com/infographics/the-bitcoin-transaction-life-cycle/)
@@ -31,5 +35,8 @@
 
 ## 区块浏览器与真实数据
 
+- **SatoshiBench · 区块浏览器与实时看板** 可以查区块、交易和地址，也能从站点全节点的视角观察内存池积压、费率分布和预计下一块会收录的交易。首页还收录签名范围、隔离见证和工作量证明等互动实验。[进入 SatoshiBench](https://satoshibench.com/)
 - **mempool.space** 查看一个观察点上的未确认交易、费率、预计打包情况和已挖区块。高度 170 的历史交易提供了可复查的例子：一个 50 BTC 输入生成 10 BTC 和 40 BTC 两个输出，手续费为零。[中文浏览器](https://mempool.space/zh/) · [历史交易图](https://mempool.space/zh/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16) · [同笔交易的 JSON 数据](https://mempool.space/api/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16) · [开源项目与部署说明](https://github.com/mempool/mempool)
 - **Bitfeed** 把节点看到的未确认交易和新挖区块画成动态图。切换显示模式，可以观察同一笔交易的金额和区块空间占用如何分别体现在图形大小上。[实时动画](https://bitfeed.live/) · [作者图例与显示模式说明](https://github.com/bitfeed-project/bitfeed/wiki/FAQ)
+- **Bitcoin Stale Block Dataset · 主网分叉树** 把节点曾观察到的竞争区块画在主链旁。放大一处分叉，点开同一高度的两个兄弟块，对照它们的区块哈希和共同的父块哈希。图例区分有完整区块的数据和仅有区块头的记录。[交互式区块头树](https://bitcoin-data.github.io/stale-blocks/tree/) · [数据来源与区块记录](https://bitcoin-data.github.io/stale-blocks/)
+- **bitcoin-data · 比特币公开数据集目录** 按区块、交易、P2P 网络、挖矿、开发和闪电网络收录数据集，列出作者、格式、许可和原始数据入口。讲完分叉树，可以接着查 KIT 的分叉观测数据，比较同一监测节点先后收到两个竞争区块的时间。[浏览数据集目录](https://bitcoin-data.github.io/)

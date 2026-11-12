@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一笔书款 · Bitcoin 系统图解</title>
+<style>
+:root{--ink:#172f45;--blue:#234e8f;--paper:#f5f8fb;--line:#8197ae;--gold:#ffd88a;--green:#146957;color:var(--ink);background:var(--paper);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0}main,header>div{width:min(1440px,94%);margin:auto}header{background:#173652;color:white}header>div,nav,.bar,.controls,.heading{display:flex;align-items:center;gap:12px}header>div{min-height:62px;justify-content:space-between}header strong{font-size:20px;white-space:nowrap}header strong i{color:#ffcf71;font: bold 25px Georgia;margin-right:8px}button{font:inherit;color:inherit;cursor:pointer;background:white;border:1px solid #b8c8d6;border-radius:7px;padding:8px 15px}button:focus-visible,svg g[role=button]:focus-visible{outline:3px solid #c77200;outline-offset:3px}header button{border-color:transparent;background:transparent;color:white}button[aria-pressed=true]{background:var(--gold);color:#263b4d;border-color:var(--gold)}button:disabled{opacity:.42;cursor:default}.heading{justify-content:space-between;margin:22px 0 14px}.heading p{margin:4px 0 0;color:#465c70}.heading h1{font-size:clamp(25px,3vw,42px);margin:0;font-weight:760;letter-spacing:-.045em}.key{color:#415a70;font-size:14px}figure{margin:0}.map{background-color:white;background-image:radial-gradient(#ccdae5 .9px,transparent .9px);background-size:19px 19px;border:1px solid #bccbd8;border-radius:14px;overflow:auto}.map svg{display:block;width:100%;height:min(66vh,630px);min-height:380px;min-width:740px}.wire{stroke:#50708d;stroke-width:2;fill:none}.edge{font-size:17px;fill:#284763;stroke:white;stroke-width:7px;paint-order:stroke;stroke-linejoin:round}.station{cursor:pointer}.station rect{stroke-width:2;fill:#f7fbff;stroke:#6283a4}.station:hover rect,.station:focus rect{stroke:#134e94;stroke-width:4}.station text{fill:#183c5c}.station .small{font-size:16px}.station.warm rect{fill:#fff0cb;stroke:#b58438}.station.green rect{fill:#def3eb;stroke:#548b7b}.station.deep rect{fill:#224d78;stroke:#183d61}.station.deep text{fill:white}.bar{justify-content:space-between;flex-wrap:wrap;padding:12px 2px;color:#395267}.bar strong{color:var(--blue)}.journey{background:white;border:1px solid #bccbd8;border-radius:14px;overflow:hidden}.steps{display:flex;background:#e7eff6;padding:8px;gap:4px}.steps button{flex:1;padding:9px 2px;background:transparent;border-color:transparent;font-weight:650}.steps button[aria-pressed=true]{background:var(--blue);color:white}.frame{padding:clamp(16px,2vw,32px)}.frame h2{margin:0;font-size:clamp(22px,2.2vw,36px)}.route{display:grid;grid-template-columns:1fr 1.3fr 1fr;align-items:center;gap:10px;text-align:center;background:#eef4fa;border-radius:10px;padding:22px 12px;margin:17px 0}.end{font-weight:700;font-size:clamp(18px,2vw,28px)}.signal{color:var(--blue);font-size:clamp(15px,1.4vw,22px);border-bottom:3px solid;padding-bottom:8px;position:relative}.signal:after{content:'';position:absolute;right:-1px;bottom:-8px;border-left:12px solid;border-block:7px solid transparent}.ledger{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.ledger div{border-top:4px solid #5178a1;padding-top:8px}.ledger div:nth-child(2){border-color:var(--green)}.ledger div:nth-child(3){border-color:#be8730}.ledger small{display:block;font-size:15px;color:#455c70}.ledger b{display:block;font-size:clamp(18px,1.7vw,26px);margin-top:5px}.controls{justify-content:space-between;flex-wrap:wrap;margin-top:22px}.controls button:last-child{background:var(--blue);color:white}.ask{font-size:clamp(17px,1.6vw,23px);margin:20px 0 0}.controls span{color:#516477}.sub{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.sub:empty{display:none}dialog{width:min(610px,92vw);max-height:88vh;overflow:auto;border:0;border-radius:16px;color:var(--ink);padding:28px;box-shadow:0 12px 70px #142d4d44}dialog::backdrop{background:#102a42a8}dialog h2{margin:0;font-size:29px}dialog dl{margin:20px 0 0}dt{color:var(--blue);font-weight:700;font-size:16px}dd{margin:4px 0 16px;line-height:1.55;font-size:20px}.close{float:right}button:hover:not(:disabled){filter:brightness(.94)}[hidden]{display:none!important}
+@media(max-width:750px){header>div{flex-wrap:wrap;padding:8px 0;gap:4px}nav{order:3;width:100%;justify-content:space-between}nav button{flex:1}.heading{margin:14px 0}.key{display:none}.map svg{height:400px}.steps{overflow:auto}.steps button{min-width:58px}.ledger{gap:7px}.route{grid-template-columns:1fr 1.2fr 1fr}.controls{gap:6px}.controls button{padding:8px}.bar{font-size:14px}}
+#payment{display:flex;align-items:center;gap:14px;margin:-4px 0 18px;font-size:clamp(15px,1.4vw,22px);flex-wrap:wrap}#payment div{display:flex;flex-wrap:wrap;gap:8px}#payment b{padding:5px 10px;background:#fff0cb;border-radius:4px}#payment div b:last-child{background:#eaf0f5}</style>
+<header><div><strong><i>₿</i>一笔书款</strong><nav aria-label="三张教学图"></nav><button id="full">⛶ 全屏</button></div></header>
+<main><div class="heading"><div><h1 id="title"></h1><p id="lead"></p></div><span class="key">1 / 2 / 3 切图　·　← → 翻步</span></div>
+<section id="diagram"><figure class="map"><svg id="map" viewBox="0 0 1160 470" aria-labelledby="title"></svg></figure><div class="bar"><strong>课堂提问</strong><span id="prompt"></span><span>点选图中组件，展开算法 ＋</span></div></section>
+<section id="journey" hidden><div class="journey"><div class="steps" aria-label="付款七步"></div><div class="frame" aria-live="polite"><h2 id="moment"></h2><div class="sub"></div><div class="route"><span class="end" id="sender"></span><span class="signal" id="message"></span><span class="end" id="receiver"></span></div><div id="payment" hidden><b>U · 100,000 聪</b><span>➜</span><div><b>B:0　Bob 60,000</b><b>B:1　找零 39,000</b><b>差额　手续费 1,000</b></div></div><div class="ledger"><div><small>Bob 节点的内存池</small><b id="pool"></b></div><div><small>已确认 UTXO · 仅跟踪本例</small><b id="coins"></b></div><div><small>Bob 的收款显示</small><b id="wallet"></b></div></div><p class="ask" id="question"></p></div></div>
+<div class="controls"><button id="detail">展开本步算法 ＋</button><span id="position"></span><div><button id="prev">← 上一幕</button> <button id="next">下一幕 →</button></div></div></section></main>
+<dialog id="info" aria-labelledby="dtitle"><button class="close" autofocus>关闭 ×</button><h2 id="dtitle"></h2><dl></dl></dialog>
+<script>
+'use strict';
+const el=id=>document.getElementById(id);
+const names=['网络角色','节点组件','付款七步'];
+const heads=['谁把什么交给谁？','一次付款经过哪些组件？','Bob 什么时候可以交书？'];
+const leads=['沿消息箭头，追踪书款、区块与矿池份额。','放大一台 Bitcoin Core v29.0 节点，沿单笔交易与整块两条入口读图。','离线 P2WPKH 教学样本 · 每次推进前，先判断能否划掉旧输出 U。'];
+// Each component has a classroom-sized caption and an expandable inspection sheet.
+const items={
+ aw:['Alice 的钱包','选币与签名','Bob 的地址、书价、Alice 可花的 U。','解码地址并生成输出脚本。引用 U，写付款和找零，对 BIP143 摘要用 ECDSA 签名。','签好的 B 含签名与公钥，私钥留在钱包。','换成另一个有效地址也可能通过校验，付款人仍须核对收款人。'],
+ bw:['Bob 的钱包','地址与收款跟踪','收款指令、钱包描述符、节点发来的交易与链事件。','派生收款脚本，匹配 B:0；按活动链位置计算确认数。','入池显示 0 次确认，接块后显示确认，断块后更新记录。','收到断块通知后，原来的确认可能撤销。'],
+ a:['接入全节点','接收并中继 B','钱包提交 B 的完整交易字节。','查输入与脚本，应用本地池策略；典型中继先通告标识，再应邻居请求发交易。','邻居各自收到并判断 B。','某个节点拒收 B 时，其他节点仍可能收下它。'],
+ n:['Bob 的全节点','独立验证与记账','邻居发来的交易、区块以及本地父块状态。','单笔走入池检查；完整块按父状态验证，选择累计工作量最大的有效分支。','维护本地池、活动链和 UTXO，通知钱包。','含 B 和 C 的块会重复花 U，即使 PoW 达标也会被拒。'],
+ mine:['矿池节点','选交易、组模板','链尖、本地池、交易依赖和资源限制。','模板构造者挑选能一起执行的交易，父交易排在子交易之前，计入奖励和费用。','模板发给协调服务；收到完整候选块后验证并中继。','同时引用 U 的 B 和 C 无法一起执行。'],
+ coord:['矿池协调服务','分配作业、复核份额','候选模板、设备报告的作业标识和头参数。','重建区块头、复算哈希，分别比较份额目标和网络目标。','普通份额记工；命中网络目标时组装完整候选块交回节点。','只达到份额目标，Bob 的确认数不变。'],
+ hash:['哈希设备与控制器','搜索 nonce','工作参数、份额目标、候选区块头。','改变 nonce，对 80 字节头双 SHA-256，把哈希数值与目标比较。','向协调服务报告可复算的命中参数。','用尽 nonce 仍未命中，可改变 coinbase 额外数据，更新根后继续。'],
+ spv:['轻客户端','检查收录证明','服务节点提供的头链、交易、兄弟哈希与左右顺序。','验证可见头链的链接、目标和 PoW；从 txid 起逐层配对双哈希，核对块头根。','确认该头承诺这笔交易。此处由 Bob 的节点示范提供证明。','路径错一层就对不上根；正确路径也不能说明 B:0 至今未花。'],
+ net:['P2P 消息处理','连接与消息分派','通告、交易字节、区块头和区块体。','按消息类型分派，请求缺少的数据；单笔交易走入池路径，整块走链管理。','数据送入相应验证入口。','仅收到通告时还缺完整交易，无法检查脚本。'],
+ pool:['入池检查与内存池','记录 B 占用 U','B、链与池内可用输入、冲突集合和本地门槛。','AcceptSingleTransaction 核对金额、冲突、脚本与策略。本例费率约 7.09 聪/vB。','登记 B 的依赖与输入占用，已确认 U 仍在。','门槛为 8 聪/vB 时，即使验签正确也可能拒收。'],
+ script:['金额与脚本检查','入池、接块均调用','交易、前序输出的金额和锁定脚本、见证与验证标志。','检查金额范围与守恒；对 U 匹配公钥哈希，重算签名摘要并验签。','将通过或拒绝结果交给调用方。','把 B:0 改成 61,000 聪会改变摘要，原签名失效。'],
+ chain:['活动链管理','接块与断块','候选链尖、父状态、完整块和撤销记录。','比较累计工作量，寻找共同祖先，先断旧块，再按顺序验证并接新块。','更新链尖和 UTXO，清理池并通知钱包。','候选分支包含无效块，即使工作量更多也不能采用。'],
+ coins:['已确认 UTXO','可花输出视图','ConnectBlock 提交的有效变更，或断块恢复的旧币。','以 txid 与输出编号定位。连接 B 时取走 U、加入 B:0 和 B:1；断开时逆转。','活动链尖与 UTXO 描述同一段历史。','同块再执行 C 时查不到 U，整块临时状态不能提交。'],
+ disk:['索引与撤销数据','块体、父指针、旧币','区块头、块体、执行时花掉的旧输出。','按父指针找分叉点；保存旧币的金额、脚本等，供断块时恢复。','可同时保存两个兄弟块，支持重组。','单靠 B 里的输入引用，无法还原 U 的旧金额与脚本。'],
+ template:['模板与 RPC','可选的出块服务','当前父块、本地池与资源上限。','CreateNewBlock 组装候选块；getblocktemplate 提供作业基础，submitblock 提交完整块。','向矿池提供候选内容，提交的块仍须验证。','模板里的交易未获确认，链尖变化会使作业过时。'],
+};
+// Coordinates keep signal labels in open space between the stations.
+const maps=[
+ {nodes:[['aw',170,62,'warm'],['bw',580,62,'warm'],['spv',990,62,''],['a',170,235,''],['n',580,235,'deep'],['mine',990,235,''],['hash',170,412,'green'],['coord',580,412,'green']],
+ edges:[
+ ['M464 62H286',375,51,'地址、书价'],['M170 96V201',170,151,'签好的 B'],['M286 235H464',375,224,'交易与区块',1],['M580 201V96',580,151,'钱包通知'],
+ ['M696 235H874',785,224,'交易与区块',1],['M660 201V148H990V96',826,137,'头链、交易、证明'],
+ ['M990 269V398H696',846,387,'候选模板'],['M696 427H1050V269',875,450,'完整候选块'],
+ ['M464 398H286',375,387,'挖矿作业'],['M286 427H464',375,450,'份额或解']]},
+ {nodes:[['net',160,61,''],['pool',580,61,'deep'],['template',1000,61,'green'],['chain',160,237,'deep'],['script',580,237,''],['bw',1000,237,'warm'],['disk',160,410,''],['coins',580,410,'green']],
+ edges:[
+ ['M276 61H464',368,50,'单笔 B'],['M696 61H884',790,50,'池内候选交易'],['M160 95V203',160,151,'区块头、块体'],['M580 95V203',580,151,'验金额与脚本'],['M276 237H464',368,226,'块内逐笔检查'],
+ ['M160 271V376',160,326,'区块、撤销记录',1],['M231 271V352H580V376',404,342,'接块花费／断块恢复',1],
+ ['M696 75H760V221H884',808,209,'入池通知'],['M276 257H365V316H1000V271',767,305,'接块、断块通知'],
+ ['M696 410H1140V9H580V27',887,399,'入池时查询 U 的金额与脚本']]}
+];
+const stages=[
+ ['给出收款地址','Bob 的钱包','地址与书价','Alice 的钱包','Bob 现在需要签名吗？','aw','Bob 给出主网 P2WPKH 地址与 60,000 聪报价。','检查网络、校验和与 v0 程序长度，从地址解出 20 字节公钥哈希，构造输出脚本。','Alice 得到了收款条件。Bob 将来花 B:0 时才签名。','替换成另一个有效地址仍可能通过校验。'],
+ ['把 U 分成付款和找零','可用输出 U','100,000 聪','交易草稿 B','漏写找零，手续费会变成多少？','aw','U 的引用、金额与脚本，Bob 的收款条件。','用前序 txid 和编号引用整项 U。100,000 − 60,000 − 39,000 = 1,000。','B:0 给 Bob 60,000，B:1 给 Alice 39,000。差额是手续费。','若只写 60,000 聪输出，差额将成为 40,000 聪手续费。'],
+ ['授权这一次花费','Alice 的签名器','签名与公钥','B 的输入见证','Alice 再签一笔也花 U 的 C，两份签名能都正确吗？','script','B、U 的金额与脚本、Alice 的私钥，签名模式 SIGHASH_ALL。','按 BIP143 构造摘要，以 ECDSA 签署；验证时匹配公钥哈希并重算摘要。','B 可以交给接入节点。Alice 也能为不同的 C 生成正确签名。','旁人把 B:0 改成 61,000 聪，原签名验不过。'],
+ ['传播并进入 Bob 的本地池','P2P 邻居','通告 → 索取 → 交易','Bob 的全节点','池里已经登记 B，可以从已确认账本划掉 U 吗？','pool','交易 B、活动链上的 U、本地池与费率门槛。','检查输入可用性、签名、金额、冲突与策略。费率 1,000 ÷ 141 ≈ 7.09 聪/vB。','池记录 B 占用 U；钱包认出 B:0，显示 0 次确认。','若费率门槛是 8 聪/vB，B 可能被本节点拒收。'],
+ ['构造模板，搜索合格区块头','矿池与设备','含 B 的完整候选块','验证节点','矿池收到普通份额，Bob 的钱包要加一次确认吗？','mine','父块、可一起执行的交易、规定目标与份额目标。','按依赖和重量选交易，构造普通 Merkle 根及见证承诺。设备试 nonce，对头双 SHA-256，比较网络目标。','普通份额记工；命中网络目标的解可用于提交完整区块。','PoW 检查只读取头。块体若含 B 和 C，仍会在执行时失败。'],
+ ['采用含 B 的有效块','整块与父状态','验块 → 连接 → 通知','Bob 的钱包','假如同一块在 B 后又收录 C，哪一次查 U 会失败？','coins','完整块与父块 UTXO。即便本地池没见过 B，也能执行。','核对目标、PoW、承诺、重量及奖励，逐笔验金额与脚本。保存旧币，花 U，加入 B:0、B:1。','整块有效且被采用后，节点更新已确认视图，钱包显示 1 次确认。','同块再执行 C 会查不到 U，整块无效，临时修改不提交。'],
+ ['确认可以加深，历史也可能改选','共同父块 P','甲含 B ｜ 乙含 C','两条有效分支','相同难度的兄弟块，为什么能各自合法地花掉 U？','chain','父块 P 有 U。甲块收 B，乙块收 C，当前仍采用甲。','两块分别从 P 执行，各自只花 U 一次。若甲继续增长，B 的确认数等于链尖高度减去所在高度再加一。','此处暂停在两支等工作量、Bob 仍采用甲的时刻。若甲再接两块，B 将有 3 次确认。','单凭高度或某个头哈希特别小，不能断定一支累计工作量更大。'],
+ ['断开含 B 的旧块，恢复 U','含 B 的旧块','撤销记录 → 恢复 U','共同父块 P','只看 B 的输入引用，能找回 U 的金额和脚本吗？','disk','乙在相同难度下又接一块，累计工作量更大。找到共同祖先 P 和旧块撤销记录。','从旧链尖断开甲，移除 B:0、B:1，用撤销记录恢复 U 的旧金额与脚本。','U 暂时恢复，B 的原确认撤下。这是内部中间状态，界面未必单独显示。','仅有引用时，缺少恢复 U 所需的旧币数据。'],
+ ['接入含 C 的分支，重新花掉 U','父块 P 的状态','执行 C → 连接后继块','新的活动链','Bob 亲眼见过一次确认，为什么书款现在消失了？','chain','恢复的 U、乙分支的块和后继块。','由 P 向前连接，C 花掉 U；按新状态重查旧交易，B 与已确认 C 冲突。','B:0 已离开活动链。钱包可保留冲突历史，60,000 聪已无法作为已确认输出花费。','若 Bob 又签了一笔花 B:0 的交易，它也失去了输入。']
+];
+const labels=['地址','构造','签名','入池','组块','验块','重组'];
+const status=[
+ ['尚未见 B','U · 100,000 聪','尚未见付款'],
+ ['B 占用 U','U · 100,000 聪','60,000 聪 · 0 次确认'],
+ ['B 已清出','B:0 · 60,000 ／ B:1 · 39,000','60,000 聪 · 1 次确认'],
+ ['待按新链重查','U 恢复 · 100,000 聪','B 的旧确认撤销'],
+ ['B 冲突，无法入池','U 已由 C 花掉，留下 C 的输出','B 冲突 · 书款失去确认']
+];
+let page=0,frame=0;
+const btn=(label,action)=>{const b=document.createElement('button');b.textContent=label;b.onclick=action;return b};
+function inspect(title,values){
+ el('dtitle').textContent=title;
+ const dl=document.querySelector('dl');dl.replaceChildren();
+ ['收到什么','怎样检查或计算','哪份状态改变','失败或分支变化'].forEach((t,i)=>{
+ const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=t;dd.textContent=values[i];dl.append(dt,dd)});
+ el('info').showModal();
+}
+function draw(){
+ const {nodes,edges}=maps[page];
+ const marker='<defs><marker id="arrow" orient="auto-start-reverse" markerWidth="8" markerHeight="8" refX="7" refY="4"><path d="M0 0L8 4L0 8Z" fill="#50708d"/></marker></defs>';
+ el('map').innerHTML=marker+edges.map(([d,x,y,l,both])=>
+ '<path class="wire" d="'+d+'" marker-end="url(#arrow)" '+(both?'marker-start="url(#arrow)"':'')+'/>'+
+ '<text class="edge" text-anchor="middle" x="'+x+'" y="'+y+'">'+l+'</text>').join('')+
+ nodes.map(([id,x,y,c])=>'<g class="station '+c+'" tabindex="0" role="button" aria-label="展开'+items[id][0]+'" data-id="'+id+'" transform="translate('+x+' '+y+')"><rect x="-116" y="-34" width="232" height="68" rx="10"/><text text-anchor="middle" y="-3" font-size="24" font-weight="700">'+items[id][0]+'</text><text text-anchor="middle" class="small" y="21">'+items[id][1]+'</text></g>').join('');
+ document.querySelectorAll('.station').forEach(g=>{const a=items[g.dataset.id];g.onclick=()=>inspect(a[0],a.slice(2));g.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();g.onclick()}}});
+ el('prompt').textContent=page?'B 入池时，哪个组件读 U？哪个组件以后才会删掉 U？':'Bob 同时担任哪些角色？普通份额最终交给谁？';
+}
+function play(i){
+ frame=Math.max(0,Math.min(i,8));
+ const s=stages[frame],step=Math.min(frame,6);
+ ['moment','sender','message','receiver','question'].forEach((id,k)=>el(id).textContent=s[k]);
+ el("payment").hidden=frame!==1;
+ const state=status[frame<3?0:frame<5?1:frame<7?2:frame===7?3:4];
+ ['pool','coins','wallet'].forEach((id,k)=>el(id).textContent=state[k]);
+ document.querySelectorAll('.steps button').forEach((b,k)=>b.setAttribute('aria-pressed',k===step));
+ document.querySelectorAll('.sub button').forEach((b,k)=>{b.hidden=frame<6;b.setAttribute('aria-pressed',frame===6+k)});
+ el('position').textContent='第 '+(step+1)+' / 7 步'+(frame>=6?'　·　第 '+(frame-5)+' / 3 幕':'');
+ el('prev').disabled=frame===0;el('next').disabled=frame===8;
+ el('detail').onclick=()=>inspect(items[s[5]][0]+' · '+labels[step],s.slice(6));
+}
+function show(i){
+ page=i;el('title').textContent=heads[i];el('lead').textContent=leads[i];
+ document.querySelectorAll('nav button').forEach((b,k)=>b.setAttribute('aria-pressed',i===k));
+ el('diagram').hidden=i===2;el('journey').hidden=i!==2;
+ if(i===2)play(frame);else draw();
+}
+names.forEach((s,i)=>document.querySelector('nav').append(btn(s,()=>show(i))));
+labels.forEach((s,i)=>document.querySelector('.steps').append(btn((i+1)+' '+s,()=>play(i))));
+['兄弟分支','断开旧块','接入新链'].forEach((s,i)=>document.querySelector('.sub').append(btn(s,()=>play(i+6))));
+el('prev').onclick=()=>play(frame-1);el('next').onclick=()=>play(frame+1);
+document.querySelector('.close').onclick=()=>el('info').close();
+document.addEventListener('keydown',e=>{
+ if(el('info').open||e.altKey||e.ctrlKey||e.metaKey)return;
+ if(['1','2','3'].includes(e.key))show(Number(e.key)-1);
+ if(page===2&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();play(frame+(e.key==='ArrowRight'?1:-1))}
+});
+if(!document.fullscreenEnabled)el('full').hidden=true;
+el('full').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
+document.addEventListener('fullscreenchange',()=>el('full').textContent=document.fullscreenElement?'退出全屏':'⛶ 全屏');
+show(0);
+</script></html>

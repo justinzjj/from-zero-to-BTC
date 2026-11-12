@@ -1,0 +1,282 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一笔书款，三种部署</title>
+<style>
+:root{color-scheme:dark;--bg:#202328;--panel:#30343b;--line:#4b515c;--text:#edf0f5;--muted:#b2bbc8;--wire:#a9bcd3;--p2p:#efb775;--state:#88cec0;--event:#c4abe7}
+:root{
+ --link:#c4d3df;--dot:#424852;--canvas:#262a30;--boundary:#596471;
+ --outline:#636d7a;--focus:#fff;--secondary:#c5ced9;--detail:#292e34;
+ --button:#383f48;--button-line:#657180;--peer:#43392f;--peer-line:#ad8558
+}
+:root[data-theme="light"]{
+ color-scheme:light;--bg:#f2f4f6;--panel:#fff;--line:#bbc5cf;--text:#192837;
+ --muted:#465866;--wire:#405e7c;--p2p:#894c11;--state:#146951;--event:#6a4588;
+ --link:#36556f;--dot:#cbd3db;--canvas:#f9fafb;--boundary:#8795a3;
+ --outline:#8c99a5;--focus:#183e61;--secondary:#475866;--detail:#e7edf1;
+ --button:#fff;--button-line:#8c99a5;--peer:#fff0dc;--peer-line:#a7753c
+}
+
+*{box-sizing:border-box}body{margin:0;background:#edf3f5;color:#16384b;font:16px/1.5 "PingFang SC","Microsoft YaHei",sans-serif}main{max-width:1520px;margin:auto;padding:20px 3vw}header,.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}h1{font-size:clamp(25px,3vw,44px);margin:0;letter-spacing:-.05em}header p{margin:0;color:#476170}.stage{margin:14px 0 10px;overflow:auto;border:1px solid #bccfd6;background:#fbfdfe;border-radius:16px}svg{display:block;width:100%;min-width:780px;max-height:60vh}svg text{font-family:inherit;fill:#193d4e}.label{font-size:19px;font-weight:650}.zone{font-size:26px;font-weight:800}.sub{font-size:17px;fill:#435f6d}.unit{cursor:pointer}.unit:hover .label,.unit:focus .label{fill:#9c4305;text-decoration:underline}.unit:focus{outline:2px solid #bd6e18}.signal{font-size:16px;font-weight:750;paint-order:stroke;stroke:#fbfdfe;stroke-width:6px;stroke-linejoin:round}.buttons{display:flex;flex-wrap:wrap;gap:6px}.buttons button,button{cursor:pointer;font:inherit;border:1px solid #a7bec8;background:white;border-radius:6px;color:inherit;padding:5px 10px}.buttons button[aria-pressed=true]{background:#193d4e;color:white;border-color:#193d4e}button:focus-visible{outline:3px solid #c67e16}button:disabled{opacity:.4}.readout{background:white;border-left:6px solid var(--color,#a45d10);padding:10px 18px;margin-top:10px}.readout h2{font-size:22px;margin:0}.readout p{margin:3px 0;font-size:18px}.toolbar small{font-size:14px;color:#486371}dialog{max-width:min(500px,90vw);border:0;border-radius:12px;padding:24px;color:inherit}dialog::backdrop{background:#16344399}dialog h2{margin:0}dialog p{font-size:20px}dialog button{float:right}@media(max-width:800px){svg{max-height:none}.toolbar{align-items:flex-start;flex-direction:column}main{padding:12px}.readout p{font-size:16px}}
+
+body{background:var(--bg);color:var(--text)}header p,.toolbar small{color:var(--muted)}
+.stage{background:var(--canvas);border-color:var(--line);border-radius:10px}
+svg text{fill:var(--text)}.sub{fill:var(--secondary)}.unit:hover .label,.unit:focus .label{fill:var(--p2p)}
+.signal{stroke:var(--canvas)}.readout,dialog{background:var(--panel);color:var(--text)}
+button,.buttons button{background:var(--button);color:var(--text);border-color:var(--button-line)}
+.buttons button[aria-pressed=true]{color:var(--text);background:var(--detail);outline:2px solid var(--focus);outline-offset:1px}
+.toolbar{margin-top:15px}.readout{border-radius:5px}.readout h2{font-size:21px}
+dialog a{color:var(--link)}dialog::backdrop{background:#151820aa}
+:root{--alice:#544536;--bob:#354956;--pool:#334b43;--service:#414852;--block:#ffa39c}
+:root[data-theme=light]{--alice:#f6dfb6;--bob:#cadeeb;--pool:#cce3da;--service:#dce5ea;--block:#a33f44}
+
+main{max-width:1560px;margin:auto;padding:20px clamp(14px,3vw,52px) 40px}
+main h1{font-size:clamp(27px,3vw,42px);letter-spacing:-.045em}
+.course-nav{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;margin:0 0 14px;padding:0 0 9px;border-bottom:1px solid var(--line);font-size:15px}
+.course-links{display:flex;flex-wrap:wrap;gap:4px}
+.course-nav .course-links a{display:block;margin:0;padding:5px 10px;border-radius:5px;text-decoration:none;color:var(--secondary);font-weight:600}
+.course-nav .course-links a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:inset 0 -2px #c39850}
+.course-nav a:hover{background:var(--panel)}
+.course-nav #theme{margin:0;padding:5px 10px;background:var(--button);border:1px solid var(--button-line);border-radius:6px;color:var(--text);font:inherit;cursor:pointer}
+.course-nav :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(max-width:650px){main{padding:12px}.course-nav{gap:6px}.course-nav .course-links a{padding:5px 7px}}
+#explanation{max-width:86ch;margin:.7em 0 .25em;padding-left:1.8em}
+#explanation li{padding:.25em 0;line-height:1.65}
+#explanation li::marker{color:var(--secondary)}
+#tags{pointer-events:none}
+.step-tree{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:start;margin-top:15px}
+.step-tree button{font-size:15px;line-height:1.4}
+.step-prefix,.step-chain{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.step-prefix{padding-right:4px}
+.step-tree .next-step{color:var(--secondary);margin:0 2px}
+.step-fork{grid-column:2;list-style:none;padding:0;margin:0 0 0 15px}
+.step-fork li{position:relative;padding:8px 0 0 21px}
+.step-fork li::before,.step-fork li::after{content:"";position:absolute;left:0;border-color:var(--secondary);border-style:solid;border-width:0}
+.step-fork li::before{top:0;bottom:0;border-left-width:1px}
+.step-fork li:last-child::before{bottom:auto;height:24px}
+.step-fork li::after{top:24px;width:16px;border-top-width:1px}
+.branch-name{color:var(--secondary);font-size:14px;line-height:32px;margin-right:3px}
+.step-chain .chain-item{display:inline-flex;gap:4px;align-items:center}
+.step-tree button[aria-pressed=true]{outline:2px solid var(--focus);outline-offset:1px;background:var(--detail)}
+@media(max-width:1100px){.step-tree{grid-template-columns:1fr}.step-prefix{margin-bottom:5px}.step-fork{grid-column:1}.step-prefix .next-step:last-child{transform:rotate(90deg)}}
+a.btc-term{color:inherit;text-decoration:underline dotted;text-decoration-color:var(--focus,currentColor);text-underline-offset:.19em}
+a.btc-term:hover,a.btc-term:focus-visible{text-decoration-style:solid;outline-offset:3px}
+</style>
+<main><nav class="course-nav" aria-label="Bitcoin 课件"><div class="course-links"><a href="btc-deployment.html" aria-current="page">实际部署</a><a href="btc-wallet.html">钱包</a><a href="btc-full-node.html">全节点</a><a href="btc-miner.html">矿机</a></div><button type="button" id="theme">切换浅色</button></nav><header><div><h1>一笔书款，三种部署</h1><p>Alice 付 60,000 聪买书。入门流程假设 Bob 同时运营右侧的挖矿设施。灰线显示全部连接，彩色箭头标出当前消息。点设备可查看内部职责。</p></div><button id="full">全屏</button></header>
+<div class="buttons" id="lesson-mode" role="group" aria-label="选择讲解视角"><button type="button" data-mode="intro">完整流程 · Bob 竞争出块</button><button type="button" data-mode="pool">展开矿池与矿机</button></div>
+<div class="step-tree" id="steps" role="group" aria-label="选择步骤，左右方向键按编号切换">
+ <div class="step-prefix" id="payment-steps"></div>
+ <div id="relay-step"></div>
+ <ul class="step-fork" aria-label="中继 B 后独立推进的两条路径">
+  <li><div class="step-chain" id="receipt-steps"><span class="branch-name">Bob 收款侧</span></div></li>
+  <li><div class="step-chain" id="mining-steps"><span class="branch-name">矿池出块至 Bob 确认</span></div></li>
+ </ul>
+</div>
+<div class="stage"><svg viewBox="0 0 1200 440" role="group" aria-label="三方设备部署与当前消息路径">
+<defs>
+<pattern id="grid" width="48" height="28" patternUnits="userSpaceOnUse"><path d="M0 0L48 28M48 0L0 28" stroke="var(--dot)" stroke-width=".8"/></pattern>
+<marker id="context-tip" orient="auto" markerWidth="5" markerHeight="5" refX="4.4" refY="2.5"><path d="M0 0L5 2.5L0 5Z" fill="var(--muted)"/></marker>
+<marker id="tip" orient="auto" markerWidth="5" markerHeight="5" refX="4.4" refY="2.5"><path id="arrow" d="M0 0L5 2.5L0 5Z"/></marker>
+<g id="server"><path fill="#92b6c9" d="M0 0l34 -18 58 19 -34 20z"/><path fill="#345c71" d="M0 0l58 21v66L0 66z"/><path fill="#60879d" d="M58 21l34 -20v65L58 87z"/><path d="M8 14l41 15m-41 2l41 15m-41 2l41 15" fill="none" stroke="#afc8d2" stroke-width="4"/><path d="M68 29l14 -8m-14 17l14 -8" stroke="#bdd1da" stroke-width="3"/></g>
+<g id="phone"><path d="M0 0l45 -18q4 -1 4 5l-7 76q0 5 -5 7L-9 87q-5 2 -4 -5l7 -76q1 -4 6 -6" fill="#375766"/><path d="M0 7l41 -16 -6 68 -41 16z" fill="#ffcf7d"/><path d="M9 30l18 -7 -1 17 -18 7z" fill="#845424"/><path d="M13 29l1 -6 9 -4 -1 7" fill="none" stroke="#845424" stroke-width="3"/></g>
+<g id="rig"><path d="M0 0l44 -23 55 18 -44 25z" fill="#aed3c6"/><path d="M0 0l55 20v46L0 46z" fill="#3c6e65"/><path d="M55 20l44 -25v46L55 66z" fill="#729f91"/><g transform="matrix(1,.35,0,1,27,31)" fill="none" stroke="#c1e2d7"><circle r="17"/><circle r="12"/><path d="M0 -12v24m-12 -12h24m-20 -8l16 16m0 -16l-16 16"/></g><path d="M64 25l28 -16m-28 24l28 -16m-28 24l28 -16" stroke="#385f58" stroke-width="3"/></g>
+</defs><rect width="1200" height="440" fill="url(#grid)" opacity=".55"/>
+<g id="platforms"></g><g id="context-routes" fill="none" stroke="var(--muted)" stroke-width="1.8" opacity=".67" pointer-events="none" aria-hidden="true"></g><g id="routes"></g><g id="units"></g><g id="tags"></g>
+</svg></div>
+
+<div class="readout" aria-live="polite"><h2 id="route"></h2><p id="data"></p><ol id="explanation"></ol></div></main>
+<dialog id="inspect"><button onclick="this.closest('dialog').close()">关闭</button><h2 id="part"></h2><p id="inside"></p><a id="open-lesson" data-lesson href="btc-wallet.html">打开钱包课件</a></dialog>
+<script>
+const $=id=>document.getElementById(id);
+function island(x,y,w,h,color){
+ const a=w/2,b=h/2;
+ return '<g transform="translate('+x+' '+y+')"><path d="M'+(-a)+' 0L0 '+b+'L'+a+' 0v12L0 '+(b+12)+'L'+(-a)+' 12z" fill="'+color+'" stroke="#75919e"/><path d="M'+(-a)+' 0L0 '+(-b)+'L'+a+' 0L0 '+b+'Z" fill="'+color+'" stroke="#78949f" stroke-width="1.5"/></g>';
+}
+$('platforms').innerHTML=island(143,178,252,86,'var(--alice)')+island(491,178,358,112,'var(--bob)')+island(934,179,495,145,'var(--pool)')+island(1002,358,242,78,'var(--pool)')+island(264,351,195,69,'var(--service)');
+const heading=(x,y,a,b)=>'<text x="'+x+'" y="'+y+'" class="zone">'+a+'</text><text x="'+x+'" y="'+(y+25)+'" class="sub">'+b+'</text>';
+$('platforms').innerHTML+=heading(35,38,'Alice · 轻用户','手机上运行独立钱包')+heading(334,38,'Bob · 全节点用户','自己的电脑负责验证与收款')+heading(715,38,'挖矿方 · 矿池与矿场','池内三个职责，池外矿机接作业');
+const units={
+ aw:[143,148,'phone','独立钱包','保存收款信息、选择旧输出 U，用 Alice 的私钥签署 B。这里通过接入全节点广播交易。'],
+ bw:[400,150,'phone','钱包','生成收款地址，识别 B:0 的 60,000 聪，按自己的全节点通知显示入池、确认或冲突。'],
+ bn:[572,150,'server','全节点','维护本地内存池、活动链和 UTXO。独立验交易与区块，并把相关事件交给同机钱包。'],
+ an:[264,324,'server','接入全节点','Alice 使用的网络接入服务。接收 B、查输入和签名，按本地策略入池，然后向邻居中继。'],
+ pn:[788,151,'server','全节点','矿池自营的全节点。验证交易与区块，提供链尖和池内交易；完整候选块也要经过验证。'],
+ pt:[934,151,'stack','模板构造','从当前链尖和本地池挑可一起执行的交易，处理依赖、重量、费用和奖励交易。此职责可与全节点同进程。'],
+ pc:[1080,151,'stack','作业协调','由模板生成作业，向矿机下发任务和份额目标。复算返回的头哈希，命中网络目标后组装完整块。'],
+ rig:[1002,335,'rig','矿场 · ASIC 矿机','池外矿场运行控制器与 ASIC。控制器准备候选头，芯片搜索 nonce，控制器把命中参数交回矿池。矿场与矿池可以分别运营。']
+};
+function drawUnit([id,[x,y,type,label]]){
+ let art=type==='phone'?'<use href="#phone" transform="translate(-15,-57) scale(.94)"/>':type==='stack'?'<use href="#server" transform="translate(-36,-36) scale(.78,.65)"/>':'<use href="#'+type+'" transform="translate(-37,-45) scale(.8)"/>';
+ return '<g class="unit" role="button" aria-label="查看'+label+'" tabindex="0" data-id="'+id+'" transform="translate('+x+' '+y+')">'+art+'<text class="label" text-anchor="middle" y="53">'+label+'</text></g>';
+}
+$('units').innerHTML=Object.entries(units).map(drawUnit).join('');
+document.querySelectorAll('.unit').forEach(g=>{const u=units[g.dataset.id];g.onclick=()=>{
+ const lessons={aw:['wallet','钱包'],bw:['wallet','钱包'],an:['full-node','全节点'],bn:['full-node','全节点'],pn:['full-node','全节点'],pt:['miner','矿机'],pc:['miner','矿机'],rig:['miner','矿机']};
+ const [slug,label]=lessons[g.dataset.id];
+ $('open-lesson').href='btc-'+slug+'.html?theme='+document.documentElement.dataset.theme;
+ $('open-lesson').textContent='打开'+label+'课件 →';
+ $('part').textContent=u[3];$('inside').textContent=u[4];$('inspect').showModal()};g.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();g.onclick()}}});
+const colors={address:'var(--p2p)',tx:'var(--wire)',local:'var(--event)',job:'var(--state)',block:'var(--block)'};
+const flow=[
+ ['报价','address','Bob 的钱包 → Alice 的钱包','Bob 展示付款二维码，Alice 扫码得到收款地址和 60,000 聪书价。',[['M378 135H181','收款地址 · 60,000 聪',273,122]],[
+  'Bob 的钱包从自己的收款密钥派生公钥，生成本次收款地址，并保存识别这个收款脚本所需的资料。',
+  'Bob 把地址和书价交给 Alice。Alice 核对收款要求；此时双方交换的是付款信息，交易 B 将由 Alice 的手机构造。']],
+ ['构造、签名并提交 B','tx','Alice 的钱包 → 接入全节点','花费 U 100,000 聪 ｜ B:0 书款 60,000 聪 ｜ B:1 找零 39,000 聪 ｜ 手续费 1,000 聪',[['M141 210V296H222','交易 B（含见证）',158,273]],[
+  '读取付款请求。钱包检查地址适用于当前网络，将 Bob 的地址转换为收款脚本，并读取书价 60,000 聪。',
+  '选择旧输出。钱包此前已同步产生 U 的前序交易，认出 U 归 Alice 控制。它从可花费的输出中选出价值 100,000 聪的 U，用前序交易标识和输出序号引用它。',
+  '计算找零。钱包按预计交易大小和费率估费。本例给定费用 1,000 聪，找零为 100,000 − 60,000 − 1,000 = 39,000 聪。钱包为找零准备 Alice 自己控制的脚本。',
+  '构造 B。一个输入引用整个 U。第一个输出 B:0 将 60,000 聪锁给 Bob，第二个输出 B:1 将 39,000 聪锁给 Alice。输入与输出总额的差就是手续费。',
+  '签名并装入见证。本例花费原生 P2WPKH 输出。钱包按 BIP143 计算摘要，其中用到 U 的金额和对应的签名脚本。SIGHASH_ALL 绑定两个新输出。Alice 用控制 U 的私钥签名，将签名（附模式字节 01）和公钥装入输入的见证。此后若改动书价，原签名就无法通过验证。',
+  '登记并发出。钱包记录付款和自己的找零，把完整的带见证交易 B 发给接入全节点。图上箭头表示这次发送，私钥留在手机里。',
+  '接入节点检查。节点查 U 是否可花，用 U 的锁定条件和 B 的见证验签，核对金额、费用及本地入池策略。本例通过检查，B 进入该节点的内存池，仍为 0 次确认。'],[
+  [143,235,'选 U · 构造 B · 签名'],[264,410,'查 U、验签、入池']]],
+ ['中继 B','tx','接入全节点 → Bob 的全节点、矿池全节点','从这里分两路观察：④ 看 Bob 的待确认收款，⑤→⑥ 看矿池准备挖矿。两侧独立推进。',[['M302 317H572V216','交易 B',478,308],['M302 330H788V218','交易 B',723,321]],[
+  '接入节点向邻居通告交易标识。尚缺 B 的邻居可以请求交易数据，再沿网络继续中继。两条亮线表示同一笔 B 的两条可能传播路径。',
+  'Bob 的节点和矿池节点各自收到 B、核对输入与见证，并按各自的策略决定是否接纳。本例两端均接纳，到达时刻可以不同。',
+  '矿池收到 B 后就可以选它组模板。即使矿场已开始试算，Bob 的钱包也可能稍后才收到本机的入池通知。']],
+ ['通知入池','local','Bob 的全节点 → Bob 的钱包','Bob 收款侧 · 本机钱包第一次识别出这笔待确认书款。',[['M536 152H436','B 已入池',486,138]],[
+  'Bob 的节点接纳 B，在本机内存池登记 B 正在花费 U。此时活动链的未花费输出集合（UTXO）里仍有 U。',
+  '节点把入池交易交给同机钱包。钱包逐个检查输出脚本，认出 B:0 属于 Bob，登记一笔 60,000 聪收款，显示 0 次确认。',
+  '这条本地通知只影响 Bob 看到的状态。矿池可独立开始第 5 步。'],[[400,236,'书款 60,000 聪 · 0 次确认']]],
+ ['组模板','local','矿池全节点 → 模板构造 → 作业协调','矿池侧 · 从第 3 步的另一条路径接着看。矿池全节点已接纳 B。',[['M800 209V245H934V209','链尖、池内交易',864,266],['M945 208V233H1080V208','含 B 的模板',1020,256]],[
+  '矿池全节点提供当前链尖和本地内存池中的候选交易。模板构造服务据此确定父块，检查交易依赖、费用和可用块空间，本次选入 B。',
+  '构造服务排好交易顺序，准备领取补贴与手续费的首笔交易（coinbase），把含 B 的模板交给作业协调服务。',
+  '协调服务保存模板和交易顺序，为它分配作业号 J。第 6 步的作业由这份模板产生。']],
+ ['下发作业','job','矿池作业协调 → 矿场控制器','矿池发作业，控制器准备区块头，ASIC 芯片在矿场内反复试算。',[['M1080 209V281H1002V299','J · 构头参数 · 份额目标',1064,272]],[
+  '作业协调把 J、父块哈希、构造 coinbase 与交易树根所需的材料、版本、时间和编码网络目标的 nBits 交给控制器，并告知适用的份额目标。完整交易留在池方。',
+  '控制器用这些材料准备 80 字节候选区块头，并给 ASIC 分配搜索任务。',
+  'ASIC 尝试不同的 nonce（区块头中的试算值），对每个候选头做两次 SHA-256。达到份额目标时，芯片把结果交回本机控制器；控制器随后向矿池发送重建参数。'],[[1002,411,'控制器准备区块头'],[1002,432,'ASIC 换 nonce、算双 SHA-256']]],
+ ['回报并复核份额','job','矿场控制器 → 矿池作业协调','控制器回报一次试算结果，矿池复算并比较两个目标。',[['M1020 300V291H1094V211','J · nonce 等参数',1102,314]],[
+  '控制器上报作业号 J，以及该次试算使用的额外 nonce、时间和头中的 nonce。矿池找到 J 对应的模板，重建同一个区块头并复算哈希 h。',
+  '矿池设份额目标来记工；主网每 2,016 块按上一周期耗时重算网络目标 T，各全节点验块时独立核对目标。',
+  '普通份额满足 T < h ≤ 份额目标。矿池核对作业有效、结果未重复后记工，矿场继续搜索。Bob 的确认数仍为 0。',
+  '本例随后另一次 ASIC 试算得到 h ≤ T。控制器沿同一条线回报，池方复算确认后，才进入第 8 步重建完整块。'],[[1080,88,'重建头、复算哈希']]],
+ ['重建并提交 K','block','矿池作业协调 → 矿池全节点','ASIC 找到命中头，作业协调重建完整候选块 K，本池全节点独立验块。',[['M1066 211V261H804V212','完整候选块 K',934,250]],[
+  '作业协调用已复核的命中参数恢复本次 coinbase，从 J 的原模板取回 B 等完整交易及见证，按原顺序组装块体，核对交易树根与命中头一致。',
+  '协调服务将区块头和块体组成的完整候选块 K 提交给本池全节点。节点独立核对父块、目标、工作量证明、块体承诺以及块中交易和奖励。',
+  '本例 K 有效并接在本池活动链尖。池节点接入 K，更新自己的 UTXO，随后向邻居传播 K。'],[[788,88,'独立验整块'],[1080,88,'用原模板重建 K']]],
+ ['传播并接入 K','block','矿池全节点 → Bob 的全节点','Bob 的节点独立验证 K；当它把 K 接入自己的活动链，就更新本地 UTXO。',[['M780 213V259H572V213','区块 K（含 B）',681,250]],[
+  '矿池全节点向邻居传播 K。Bob 的节点收到或重建完整块，按父块对应的状态独立验块；即使 B 已在自己的内存池，也要按区块规则检查。',
+  '本例 K 延伸 Bob 的活动链尖。接入 K 时，节点从本地 UTXO 移除已花费的 U，加入 B:0（Bob 的 60,000 聪）和 B:1（Alice 的 39,000 聪），并从内存池移除已上链的 B。',
+  '此时 Bob 的节点可以给本机钱包发接块事件。整条链的状态由节点维护，书款记录由钱包更新。'],[[572,88,'验 K · 接块 · 更新 UTXO']]],
+ ['首次确认','local','Bob 的全节点 → Bob 的钱包','同一台电脑、同一条本地连接，这次通知携带已接入的区块 K 和链上位置。',[['M536 152H436','含 B 的 K 已接入',486,138]],[
+  '节点向钱包交付 K 和它在活动链上的位置。钱包从块中找到 B，用自己的收款脚本认出 B:0，并将区块位置记入书款记录。',
+  '本例 K 正是当前链尖，Bob 的钱包把同一笔 60,000 聪书款从 0 次确认更新为 1 次确认。以后链尖延伸，确认数随之增加；发生重组时，钱包按接块、断块通知更新显示。',
+  '第 10 步依赖第 9 步接入 K。即使 Bob 此前错过 B 的入池通知，钱包也能首次从 K 里识别这笔书款，直接显示 1 次确认。'],[[400,236,'书款 60,000 聪 · 1 次确认']]]
+];
+// In the introductory example Bob also operates the mining side of the diagram.
+const introFlow = [
+ ...flow.slice(0,2),
+ ['中继 B','tx',flow[2][2],'接入节点把交易 B 传给邻居。',flow[2][4],[flow[2][5][0],flow[2][5][1]]],
+ ['显示待确认','local',flow[3][2],'Bob 先以书商身份看到这笔付款。',flow[3][4],flow[3][5].slice(0,2),flow[3][6]],
+ ['选父块和交易','local','Bob 的全节点 → 模板构造','Bob 和其他出块方各自准备候选块。本例从同一个活动链尖 P 开始竞争。',[flow[4][4][0]],[
+  'Bob 选择 P 作为父块，从自己的内存池挑出能一起执行的交易，按依赖排好顺序，并检查区块资源预算。',
+  '本次选入书款交易 B。另一出块方可以选不同的交易；若对方先传播有效块，Bob 可能需要更新父块、重新开工。'],[[934,88,'父块 P · 已选入 B']]],
+ ['填块体与奖励','local','模板构造 · 排列候选块 K 的内容','第一笔放奖励交易 coinbase，然后放书款 B 和其他选中的交易。',[],[
+  'coinbase 的输入中写入当前区块高度，输出指定奖励的收款条件；可领取的总额上限是该高度的补贴加上本块全部手续费。B 给费用总额贡献 1,000 聪。',
+  'B 带有见证。构造者按规则计算见证承诺，放入 coinbase 的输出。区块体保留有序的完整交易及见证，稍后供全节点逐笔验证。'],[[934,88,'coinbase · B · 其他交易']]],
+ ['算根、准备区块头','job','作业协调 → 矿场控制器','控制器利用作业材料确定本次 coinbase，沿 Merkle 路径算出根，填好 80 字节的区块头。',flow[5][4],[
+  '普通 Merkle 树的叶子是按块内顺序排列的 txid，相邻两项拼接后做双 SHA-256，逐层得到一个根。控制器可利用矿池给出的兄弟哈希，从 coinbase 的 txid 复算同一个根。',
+  '按顺序填写：版本 4 字节、父块 P 的哈希 32 字节、Merkle 根 32 字节、时间 4 字节、nBits 4 字节、nonce 4 字节。nBits 编码该父块位置要求的网络目标 T，各全节点可独立核对。'],[[1002,412,'80 字节区块头']]],
+ ['换 nonce 试算','job','Bob 的矿场 · 并行搜索区块头','先固定前 76 字节，替换最后 4 字节 nonce。每次对完整区块头做两次 SHA-256。',[],[
+  '第一次输入是序列化的 80 个原始字节，第二次输入是第一次得到的 32 字节摘要。把最终摘要按小端解释为整数 h。若 h > T，这个头没有命中网络目标，继续试。',
+  '各方同时搜索自己的候选头。提高算力会增加每秒尝试次数，但不能预先指定哪个 nonce 会命中。一组头的 2³² 个 nonce 用完后，可改 coinbase 中的额外数据，重算根再试。'],[[1002,412,'换 nonce → 双 SHA-256']]],
+ ['命中网络目标','job','矿场控制器 → Bob 的作业协调','这一次 h ≤ T，控制器回报命中参数。Bob 找到一份可复核的工作量证明。',flow[6][4],[
+  '池方按作业号找回原模板，用回报的额外 nonce、时间和 nonce 重建同一个头，复算 h 并比较 T。只达到矿池份额目标的结果可以记工，不能据此提交新区块。',
+  '真实对照（主网创世块，非课堂 K）：固定前 76 字节，nonce 为 2083236892 时未达标，换成 2083236893 时达标。两次用的是同一个目标。'],[[1080,88,'复算 h ≤ T']]],
+ ['组装并提交 K','block','Bob 的作业协调 → 矿池全节点','池方将命中头与对应的原块体组装成 K，交给自己的全节点验证。',flow[7][4],[
+  '按原模板的交易顺序和命中参数恢复完整块，含 B 的交易树根必须与头中承诺一致。此时临时换一笔交易，会使原有承诺对不上。',
+  '本例 Bob 先找到合格头，K 的交易、奖励和其他共识检查也通过，本池节点采用 K 并开始传播。如果 K 同时收录了也花 U 的竞争交易 C，即使头命中也会整块失败。Bob 的收款钱包此刻仍等本机通知。'],[[788,88,'验证完整的 K']]],
+ ['传播并验证 K','block',flow[8][2],'Bob 的出块端验证并传播 K。图中画出收款侧全节点收到 K 的一条路径。',flow[8][4],[flow[8][5][0],flow[8][5][1]],flow[8][6]],
+ ['书款首次确认','local',flow[9][2],'收款侧全节点采用 K 后通知钱包。Bob 的 60,000 聪书款获得 1 次确认。',flow[9][4],[flow[9][5][0],flow[9][5][1]],flow[9][6]]
+];
+const dashes={address:'3 6',tx:'',local:'6 4',job:'14 5',block:''};
+// Steps 4 and 10 carry different notifications on the same local connection.
+const drawnRoutes = new Set();
+for (const [, kind, , , paths] of flow) {
+ for (const [geometry] of paths) {
+  if (drawnRoutes.has(geometry)) continue;
+  drawnRoutes.add(geometry);
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', geometry);
+  path.setAttribute('marker-end', 'url(#context-tip)');
+  if (dashes[kind]) path.setAttribute('stroke-dasharray', dashes[kind]);
+  $('context-routes').append(path);
+ }
+}
+let activeFlow=introFlow;
+let index=0;
+function show(i){
+ index=Math.max(0,Math.min(activeFlow.length-1,i));const [name,kind,title,detail,paths,explanation,notes=[]]=activeFlow[index],c=colors[kind];
+ $('arrow').setAttribute('fill',c);$('routes').innerHTML=paths.map(([d])=>'<path d="'+d+'" stroke="var(--canvas)" stroke-width="9" fill="none"/><path d="'+d+'" stroke="'+c+'" stroke-width="'+(kind==='block'?5:3.5)+'" stroke-dasharray="'+dashes[kind]+'" fill="none" marker-end="url(#tip)"/>').join('');
+ $('tags').innerHTML=paths.map(([,s,x,y])=>'<text class="signal" text-anchor="middle" x="'+x+'" y="'+y+'" style="fill:'+c+'">'+s+'</text>').join('');
+ for(const [x,y,label] of notes){
+  const note=document.createElementNS('http://www.w3.org/2000/svg','text');
+  note.setAttribute('class','signal');note.setAttribute('text-anchor','middle');
+  note.setAttribute('x',x);note.setAttribute('y',y);note.textContent=label;$('tags').append(note);
+ }
+ $('explanation').replaceChildren(...explanation.map(line=>{
+  const item=document.createElement('li');item.textContent=line;return item;
+ }));
+ $('route').textContent=title;$('data').textContent=detail;document.querySelector('.readout').style.setProperty('--color',c);
+ Array.from($('steps').querySelectorAll('button')).forEach((b,k)=>b.setAttribute('aria-pressed',k===index));
+}
+function stepArrow(){
+ const arrow=document.createElement('span');
+ arrow.className='next-step';arrow.textContent='→';arrow.setAttribute('aria-hidden','true');
+ return arrow;
+}
+function selectMode(mode){
+ activeFlow=mode==='intro'?introFlow:flow;
+ for(const button of $('lesson-mode').querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.mode===mode));
+ for(const id of ['payment-steps','relay-step','receipt-steps','mining-steps']){
+  const row=$(id);
+  for(const child of Array.from(row.children))if(!child.classList.contains('branch-name'))child.remove();
+ }
+ $('mining-steps').querySelector('.branch-name').textContent=mode==='intro'?'Bob 的出块侧 → 收款确认':'矿池出块至 Bob 确认';
+ activeFlow.forEach(([name,kind],i)=>{
+ const button=document.createElement('button');
+ button.textContent=(i+1)+' '+name;
+ button.style.borderBottom='3px solid '+colors[kind];
+ button.onclick=()=>show(i);
+ if(i<2) $('payment-steps').append(button,stepArrow());
+ else if(i===2) $('relay-step').append(button);
+ else if(i===3) $('receipt-steps').append(button);
+ else {
+  const item=document.createElement('span');
+  item.className='chain-item';
+  if(i>4) item.append(stepArrow());
+  item.append(button);$('mining-steps').append(item);
+ }
+});
+ show(0);
+}
+for(const button of $('lesson-mode').querySelectorAll('button'))button.onclick=()=>selectMode(button.dataset.mode);
+document.addEventListener('keydown',e=>{if($('inspect').open||e.altKey||e.ctrlKey||e.metaKey)return;if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();show(index+(e.key==='ArrowRight'?1:-1))}});
+$('full').hidden=!document.fullscreenEnabled;$('full').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
+document.addEventListener('fullscreenchange',()=>$('full').textContent=document.fullscreenElement?'退出全屏':'全屏');selectMode('intro');
+
+function setLessonTheme(mode) {
+  const light = mode === 'light';
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  const button = document.getElementById('theme');
+  button.textContent = light ? '切换深色' : '切换浅色';
+  // Carry the setting even when file URLs have isolated storage.
+  for (const link of document.querySelectorAll('.course-links a, a[data-lesson]')) {
+    const url = new URL(link.href);
+    url.searchParams.set('theme', document.documentElement.dataset.theme);
+    link.setAttribute('href', url.pathname.split('/').pop() + url.search + url.hash);
+  }
+}
+let lessonTheme = new URLSearchParams(location.search).get('theme');
+if (!['light', 'dark'].includes(lessonTheme)) {
+  try { lessonTheme = localStorage.getItem('btc-course-theme') || localStorage.getItem('btc-full-node-theme') || localStorage.getItem('btc-wallet-theme'); } catch {}
+}
+setLessonTheme(lessonTheme);
+document.getElementById('theme').onclick = () => {
+  setLessonTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  const url = new URL(location.href);
+  url.searchParams.set('theme', document.documentElement.dataset.theme);
+  try { history.replaceState(null, '', url); } catch {}
+  try { localStorage.setItem('btc-course-theme', document.documentElement.dataset.theme); } catch {}
+};
+</script>
+<script src="知识卡片/术语引用.js"></script></html>

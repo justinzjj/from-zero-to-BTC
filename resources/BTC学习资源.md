@@ -31,7 +31,7 @@
 - **Bitcoin Access · How Bitcoin Works** 学院把区块链、钱包、节点、挖矿和共识分题讲解；这一页的模拟器适合追踪一笔付款，逐步看节点何时验证交易、矿工何时组块、收款何时获得确认。[Alice → Bob 交易模拟器](https://www.bitcoinaccess.org/academy/bitcoin/how-bitcoin-works)
 - **The Bitcoin Transaction Life Cycle** 一张可投影的流程图，用两条线索串起用户操作与后台处理，从扫码付款、签名、广播一直画到首次确认及后续确认。[作者的高清信息图](https://www.bitcoindesigned.com/infographics/the-bitcoin-transaction-life-cycle/)
 - **Blockchain Demo** Anders Brownworth 的浏览器实验从哈希、区块和工作量证明推进到多份账本、代币与区块奖励。最直观的操作是改写旧区块，再逐块重新挖矿，观察哪些后继块仍受影响。[MIT 分步演示](https://blockchain.mit.edu/how-blockchain-works/) · [直接修改一条区块链](https://andersbrownworth.com/blockchain/blockchain)
-- **本仓库《一笔 BTC 付款的一生》** 跟着 Alice 的书款对照三次账本状态：入池时旧输出仍在，首次确认后 Bob 得到新输出，竞争分支胜出后这项收款可能消失。[中文讲义与账本快照](../lessons/0-BTC%20overview.md)
+- **本仓库《一笔 BTC 付款的一生》** 跟着 Alice 的书款对照三次账本状态：入池时旧输出仍在，首次确认后 Bob 得到新输出，竞争分支胜出后这项收款可能消失。[中文讲义与账本快照](../lessons/overview/0-BTC%20overview.md)
 
 ## 区块浏览器与真实数据
 

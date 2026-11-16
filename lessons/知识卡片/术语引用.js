@@ -1,5 +1,7 @@
 // Each independently opened step, explanation or dialog has its own first mentions.
 (() => {
+  // Resolve shared resources relative to this script, independent of the course folder.
+  const cardsBase = new URL('.', document.currentScript.src);
   const entries = {
     '01': '双 SHA-256|双 SHA256|SHA-256|SHA256|RIPEMD-160|HASH160|wtxid|txid|字节序|交易标识|公钥哈希',
     '02': 'secp256k1|压缩公钥|标量乘法|私钥|公钥',
@@ -63,7 +65,9 @@
         const link = document.createElement('a');
         const id = cardFor.get(key);
         const encodingTerm = ['compactsize','交易序列化','序列化'].includes(key);
-        link.href = key === 'utxo' ? 'btc-utxo.html' : '知识卡片/阅读.html#card-' + (encodingTerm ? 'example-06' : id);
+        link.href = key === 'utxo'
+          ? new URL('../overview/btc-utxo.html', cardsBase).href
+          : new URL('阅读.html#card-' + (encodingTerm ? 'example-06' : id), cardsBase).href;
         link.target = '_blank';
         link.rel = 'noopener';
         link.className = 'btc-term';

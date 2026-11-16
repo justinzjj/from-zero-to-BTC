@@ -1,0 +1,5 @@
+统一维护入口：../课程大纲.md 的「维护与资源」。
+生成：在课程展示目录运行 python3 build.py；校验：python3 build.py --check。
+coverage-data.json 保存完整课程与模块映射；展示摘要.json 保存四列展示摘要；两者课次和标题必须一致。
+展示模板.html、coverage.template.html 是页面模板；课程大纲模板.txt 是大纲正文模板。
+SVG、PDF 与生成脚本保存在本 resources 目录。

@@ -94,7 +94,7 @@
 <p>Alice 为 B 所作的签名仍可通过密码学验证，改变的是「当前历史里 U 给了谁」。在诚实算力占优、区块能正常传播的假设下，确认越深，竞争分支追上的可能性通常越低。协议给出可复核的确认深度，Bob 根据书的价值和能承受的损失决定何时交货；任何固定确认数都无法给出绝对终局。<a href="https://bitcoin.org/bitcoin.pdf">Bitcoin 白皮书，第 11 节</a></p>
 <details><summary>累计工作量和回滚。</summary><p>对合法目标 T，一个块贡献的工作量为 ⌊2²⁵⁶/(T+1)⌋。节点沿父指针把每块的贡献加起来。因此比较分支要看累计工作量；运气好碰到一个特别小的实际哈希，也只按该块规定的目标记工作。B 只要在活动链上，确认数就是“当前链尖高度 − B 所在块高度 + 1”；若它被移出活动链，这条公式不再适用。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/chain.cpp">Bitcoin Core v29.0：GetBlockProof</a></p>
 <p>设共同父块为 P，等难度分支甲为 P → 含 B 的块，分支乙为 P → 含 C 的块 → 又一块。乙多一块工作量。节点找到共同祖先 P，从旧链尖向后断开到 P，利用撤销记录移除旧块新增的输出并恢复被花掉的 U；再从 P 向前逐块连接乙，C 消耗 U。旧链上的普通交易若在新状态仍有效，可以重新参加入池检查；本例的 B 与 C 花费同一个 U，B 已失去可用输入。若 Bob 此前又签了花费 (txid_B, 0) 的交易，它同样会失去输入。这样就能从数据上解释，为什么持钥人的授权可以一直为真，收款的确认状态却会改变。<a href="https://github.com/bitcoin/bitcoin/blob/v29.0/src/validation.cpp">Bitcoin Core v29.0：DisconnectBlock 与分支切换</a></p>
-</details></div></section><footer><a href="0-BTC%20overview.md">阅读 Markdown 讲义</a> · <a href="../resources/BTC可视化资源.md">课程资源</a></footer></main><script>
+</details></div></section><footer><a href="0-BTC%20overview.md">阅读 Markdown 讲义</a> · <a href="../../resources/BTC学习资源.md">课程资源</a></footer></main><script>
 const states=["当前采用分支甲。U 已花；Bob 持有 B:0，价值 60,000 聪。","回滚中的临时状态：恢复 U，移除 B:0 和 B:1。此时回到共同父块 P。","连接分支乙：C 再次消耗 U；Bob 的 B:0 不存在，依赖它的后续花费也失去输入。"];
 const buttons=document.querySelectorAll("[data-k]");
 buttons.forEach(b=>b.onclick=()=>{buttons.forEach(x=>x.setAttribute("aria-pressed",String(x===b)));document.querySelector("#snapshot").textContent=states[Number(b.dataset.k)];});

@@ -16,7 +16,7 @@ def build(check=False):
         assert all(p.exists() and p.read_text()==s for p,s in display.items()), 'Display/SVG outputs are stale'
     else:
         for p,s in display.items():p.write_text(s)
-    assert [p.name for p in B.rglob('*.md')]==['课程大纲.md'], 'Keep one Markdown syllabus'
+    assert {p.name for p in B.rglob('*.md')}=={'课程大纲.md','知识点梳理.md'}, 'Keep the unified syllabus and knowledge checklist'
     for p in [B/'课程展示.html',B/'课程覆盖审计.html',B/'课程大纲.md']:
         content=p.read_text()
         links=re.findall(r'href="([^"]+)"',content) if p.suffix=='.html' else re.findall(r'\]\(([^)]+)\)',content)

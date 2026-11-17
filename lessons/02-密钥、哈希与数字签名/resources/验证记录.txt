@@ -1,0 +1,45 @@
+验证日期：2026-11-16
+环境：macOS，Apple clang 17.0.0，C++17，OpenSSL 3.6.4
+正常编译：-Wall -Wextra -Werror -O2
+额外检查：AddressSanitizer + UndefinedBehaviorSanitizer（系统签名/编码实验）；小曲线另执行边界与遍历测试。
+结果：两次执行均退出0，无编译警告、无 sanitizer 错误。
+性能与DER长度只代表本次运行，不作为固定验收值。
+
+正常运行输出：
+wire_hex=010200000060ea000000000000
+public_bytes=33
+key_id_bytes=20
+signature_DER_bytes=70
+valid=true
+tampered_amount=false
+tampered_recipient=false
+wrong_key=false
+malformed_signature=false
+extra_hash=false
+verify_average_us=286.42
+PASS: public-only verify, authorization mutations, encoding, hash boundary
+Public key: (0, 6)
+Signature: (10, 15)
+Valid: true
+Tampered: false
+All ECDSA tests passed
+
+代码迁移：源文件与运行脚本位于 from-zero-to-BTC/code/lesson-02/；构建输出位于 code/build/lesson-02/。
+迁移后复验：在本课目录执行 bash ../../code/lesson-02/run.sh，退出码0。
+wire_hex=010200000060ea000000000000
+public_bytes=33
+key_id_bytes=20
+signature_DER_bytes=71
+valid=true
+tampered_amount=false
+tampered_recipient=false
+wrong_key=false
+malformed_signature=false
+extra_hash=false
+verify_average_us=204.86
+PASS: public-only verify, authorization mutations, encoding, hash boundary
+Public key: (0, 6)
+Signature: (10, 15)
+Valid: true
+Tampered: false
+All ECDSA tests passed

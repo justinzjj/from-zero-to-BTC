@@ -1,0 +1,25 @@
+验证日期：2026-11-16
+环境：macOS，Apple clang 17.0.0，C++17，OpenSSL 3.6.4
+正常编译：-Wall -Wextra -Werror -O2
+额外检查：AddressSanitizer + UndefinedBehaviorSanitizer（系统签名/编码实验）；小曲线另执行边界与遍历测试。
+结果：两次执行均退出0，无编译警告、无 sanitizer 错误。
+性能与DER长度只代表本次运行，不作为固定验收值。
+
+正常运行输出：
+amount_sat=60000
+wire_bytes=13
+wire_hex=010200000060ea000000000000
+sha256=54c84baf5560274cd84dcea2ba3d90eb9db9195f84961656adbe12affcdb2a7d
+double_sha256=cabe344ece1c989c86725f3799eebbd11746f15a7b6ea59ac5968df1fa98c873
+sizeof_PaymentDraft=16
+PASS: amount, golden encoding, bounds, roundtrip, SHA256 vector, mutation
+
+代码迁移：源文件与运行脚本位于 from-zero-to-BTC/code/lesson-01/；构建输出位于 code/build/lesson-01/。
+迁移后复验：在本课目录执行 bash ../../code/lesson-01/run.sh，退出码0。
+amount_sat=60000
+wire_bytes=13
+wire_hex=010200000060ea000000000000
+sha256=54c84baf5560274cd84dcea2ba3d90eb9db9195f84961656adbe12affcdb2a7d
+double_sha256=cabe344ece1c989c86725f3799eebbd11746f15a7b6ea59ac5968df1fa98c873
+sizeof_PaymentDraft=16
+PASS: amount, golden encoding, bounds, roundtrip, SHA256 vector, mutation

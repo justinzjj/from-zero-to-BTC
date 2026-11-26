@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 184" role="img" aria-labelledby="t d">
+<title id="t">付款前、金额检查、付款后的 UTXO 集合</title><desc id="d">U:0 的十万聪被整体花费。B:0 付给收款方六万聪，B:1 找零三万九千聪，差额一千聪为手续费。</desc>
+<rect width="860" height="184" rx="8" fill="#262a30"/>
+<g font-family="sans-serif" fill="#edf0f5" font-size="18">
+<text x="20" y="34">花费前 · 1 条</text><text x="300" y="34">检查输入与金额</text><text x="600" y="34">花费后 · 2 条</text>
+<g fill="#30343b" stroke="#8994a3"><rect x="20" y="60" width="220" height="74" rx="6"/><rect x="290" y="60" width="250" height="74" rx="6"/></g>
+<path d="M244 97h40m-7 -5 7 5 -7 5 M544 97h40m-7 -5 7 5 -7 5" fill="none" stroke="#c3ccd7" stroke-width="2"/>
+<g fill="#30343b" stroke="#88cec0"><rect x="590" y="52" width="250" height="42" rx="5"/><rect x="590" y="103" width="250" height="42" rx="5"/></g>
+<text x="36" y="91">U:0　Alice</text><text x="36" y="117">100000 聪</text><text x="306" y="91">U:0 存在且只出现一次</text><text x="306" y="117">100000 − 99000 = 1000</text>
+<text x="605" y="79">B:0　收款　60000 聪</text><text x="605" y="131">B:1　找零　39000 聪</text><text x="290" y="165" fill="#e7be6d">差额是手续费，输出共两笔</text></g></svg>

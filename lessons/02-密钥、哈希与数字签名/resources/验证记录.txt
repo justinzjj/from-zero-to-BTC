@@ -43,3 +43,13 @@ Signature: (10, 15)
 Valid: true
 Tampered: false
 All ECDSA tests passed
+
+2026-11-20 简化摘要级ECDSA示例
+命令：bash code/lesson-02/run_simple.sh（项目根目录）
+C++17、-Wall -Wextra -Werror编译通过；valid=true、tampered=false、wrong_key=false；与原message接口双向交叉验签通过。
+
+2026-11-20 OpenSSL学生版（无自定义封装）
+运行：bash code/lesson-02/run_student.sh
+C++17 / -Wall -Wextra -Werror编译运行通过；original_valid=true，tampered_valid=false。仅依赖OpenSSL与标准库。
+
+2026-11-20 按学生语法程度简化：固定数组、if、指针、直接OpenSSL调用；移除vector/string/异常。run_student.sh编译运行通过，原消息1，篡改消息0。

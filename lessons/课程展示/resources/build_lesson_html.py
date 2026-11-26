@@ -1,6 +1,7 @@
 """Build the first two lecture decks; standalone HTML, no CDN or runtime dependencies."""
 from pathlib import Path
 from html import escape as e
+import re
 ROOT = Path(__file__).resolve().parents[3]
 LESSONS = ROOT/'lessons'
 CORE='https://github.com/bitcoin/bitcoin/blob/v29.0/src/'
@@ -15,7 +16,7 @@ def ref(path,label=None):return f'<a href="{CORE+path}" target="_blank" rel="noo
 def local(n,name): return f'<a href="../../code/lesson-{n:02}/{name}">{name}</a>'
 def snippet(n,file,start,end):
     text=(ROOT/f'code/lesson-{n:02}'/file).read_text(); a=text.index(start); b=text.index(end,a) if end else len(text)
-    return code(text[a:b].strip() + ('\n}' if end == '\n}\n}' else ''))
+    return code(re.sub(r'/\* 数学原理：.*?\*/\s*', '', text[a:b], flags=re.S).strip() + ('\n}' if end == '\n}\n}' else ''))
 def flow(items):return '<div class="flow">'+''.join('<span>'+x+'</span>' for x in items)+'</div>'
 def slide(title,q,body,source='',part='基础知识'):
     return dict(title=title,q=q,body=body,source=source,part=part)
@@ -57,7 +58,7 @@ a('接入系统：表示层已经就绪','哪些成果保留，哪些结构后�
 
 two=[]
 def a(t,q,b,s='',p='基础知识'):two.append(slide(t,q,b,s,p))
-a('证明这笔付款经过了谁的授权','第02讲 · 密钥、哈希与数字签名',cols('<h2>学习重点</h2>'+ul('<b>概念：</b>公私钥、有限域、点群、离散对数、授权边界。','<b>算法：</b>模逆、倍加、secp256k1 上的 ECDSA；认识 BIP340 Schnorr。','<b>结构：</b>曲线点、签名(r,s)、Key / Context、压缩公钥与DER。'),'<h2>本课要解决的问题</h2><p>任何人都能改草稿并重算哈希，怎样产生只有 Alice 能生成、其他人能公开核验的授权证据？</p>'+flow(['13字节草稿','私钥签名','公钥验签']))+arch(2),p='本课总览')
+a('证明这笔付款经过了谁的授权','第02讲 · 密钥、哈希与数字签名',cols('<h2>学习重点</h2>'+ul('<b>概念：</b>公私钥、数字签名、公开验签与授权边界。','<b>算法：</b>调用secp256k1上的ECDSA，完成消息签名与验签。','<b>结构：</b>Key / Context、消息字节、压缩公钥与DER签名。'),'<h2>本课要解决的问题</h2><p>任何人都能改草稿并重算哈希，怎样产生只有 Alice 能生成、其他人能公开核验的授权证据？</p>'+flow(['13字节草稿','私钥签名','公钥验签']))+arch(2),p='本课总览')
 a('数字签名与公钥认证','谁能生成证据，谁能验证证据？',table(['机制','验证者需要什么','限制'],[['公开哈希','消息与算法','任何人都能重算'],['共享密码 / HMAC','同一秘密','持有验证秘密的人也能伪造'],['数字签名','公开密钥','私钥生成，公钥验证']])+note('签名不加密，也不证明余额、未双花或确认。公钥必须绑定应有的花费条件；不能信任提交者任意附带的公钥。'))
 a('secp256k1、ECDSA 与 Schnorr','Bitcoin 到底使用哪条曲线、哪种算法？',table(['层次','Bitcoin 的实际选择','教学实现'],[['曲线','secp256k1：y²=x³+7 mod p','真实实验同样选 secp256k1'],['公钥生成','Q=dG，椭圆曲线标量乘法','小曲线用二进制倍加推演'],['传统 / SegWit v0','ECDSA','OpenSSL EVP ECDSA'],['Taproot','BIP340 Schnorr','本讲认识，E2扩展'],['库','libsecp256k1','OpenSSL 3']])+note('曲线是参数集合，标量乘法是底层运算，ECDSA / Schnorr 是签名算法；这三个层次不能混称。'),'<a href="https://bips.dev/340/">BIP340</a> · <a href="https://bips.dev/341/">BIP341</a>')
 a('有限域与扩展欧几里得算法','模运算里的除法如何定义？',formula('a · a⁻¹ ≡ 1 (mod p)<br>ax + py = gcd(a,p) = 1')+ul('加、减、乘都取模；除以a改为乘a的逆元。','辗转相除递推余数，同时递推系数；gcd不变，线性组合关系不变。','只有 gcd(a,p)=1 才有逆元；不能求0的逆。')+code('例：3 × 13 = 39 ≡ 1 (mod 19)\n因此 3⁻¹ mod 19 = 13')+note('欧几里得除法步数 O(log p)；大整数除法本身也有成本。曲线坐标模p，签名标量模n。'))
@@ -95,6 +96,62 @@ two[20:21] = [
  slide('代码：小曲线 ECDSA 验签', '哪些边界必须在接受签名前检查？', snippet(2,'toy_curve.cpp','bool verify_digest','} // namespace demo')+note('检查r/s范围、公钥在曲线上且nQ=O、计算结果不是O，最后比较x坐标模n。生产授权使用成熟密码学库。'),local(2,'toy_curve.cpp'),'实验尝试')
 ]
 
+
+# Lesson 02: practical secp256k1 workflow; mathematical derivations live in resources.
+old_two = {s['title']: s for s in two}
+two = [
+ slide('用 secp256k1 完成付款签名与验签','第02讲 · 从真实密钥到授权验证',cols('<h2>学习重点</h2>'+ul('<b>如何签名：</b>生成secp256k1密钥，将付款字节交给ECDSA签名接口。','<b>如何验签：</b>使用公钥、原始消息和签名，判断授权是否通过。','<b>如何检查失败：</b>修改金额、收款方、公钥或签名，验证拒绝结果；检查重复哈希误用。'),'<h2>本课要解决的问题</h2><p>用真实曲线签署第1讲的付款字节，让只持有公钥的验证者检查授权。</p>'+flow(['生成密钥','签名','仅公钥验签']))+arch(2),part='本课总览'),
+ old_two['secp256k1、ECDSA 与 Schnorr'],
+ slide('公私钥与签名：使用所需的原理','为什么私钥留在钱包，公钥可以交给验证者？',formula('Q = dG　　secp256k1：y² = x³ + 7 mod p')+flow(['消息字节m','哈希z','私钥d + 内部nonce k','签名(r,s)'])+ul('私钥d生成公钥Q；从Q反推d依赖离散对数难题。','ECDSA：R=kG，r=xR mod n，s=k⁻¹(z+rd) mod n。库完成底层运算与nonce处理。','验证端使用公钥、同一消息和签名，不需要私钥。')+note('本讲理解输入角色并正确调用库；模逆、点加与手算推导放课后补充。'),'<a href="resources/数学原理补充.md">数学原理补充</a>'),
+ old_two['数字签名与公钥认证'],
+ old_two['压缩公钥与 HASH160'],
+ old_two['DER、Key 与 Context'],
+ old_two['EVP 消息接口与 Bitcoin 摘要接口'],
+ old_two['实验环境与文件'],
+ slide('实践：先跑通一笔付款授权','从第1讲的编码结果走到 true。',code('auto alice = generate_key();\nauto verifier = public_only(alice.get());\nauto message = encode({2, parse_amount("0.00060000")});\nauto signature = sign_message(alice.get(), message);\nbool accepted = verify_message(\n    verifier.get(), message, signature);')+ul('先预测 accepted，再运行 lab02.cpp。','确认 verifier 只含公钥；message 就是第1讲的13字节。','保留signature，只把金额改成60001，重新验签。'),local(2,'lab02.cpp'),part='实验尝试'),
+ old_two['代码：真实密钥与公开验证者'],
+ slide('代码：压缩公钥与 HASH160','如何从公钥对象得到传输字节与标识？',snippet(2,'crypto.hpp','inline Bytes compressed_public','// Input is MESSAGE BYTES')+note('压缩编码33字节，HASH160为20字节。这里观察编码；verify_message接收公钥对象，不能直接传入这段字节数组。'),local(2,'crypto.hpp'),part='实验尝试'),
+ old_two['代码：ECDSA 消息签名'],
+ old_two['代码：ECDSA 公开验签'],
+ slide('实践：保留签名，逐次只改一项','验签是否真的覆盖了这次付款？',code('verify_message(pub.get(), message, sig);              // true\nverify_message(pub.get(), encode({2,60001}), sig);     // false\nverify_message(pub.get(), encode({3,60000}), sig);     // false\nverify_message(other.get(), message, sig);            // false\nverify_message(pub.get(), message, Bytes{0});         // false')+note('分别改金额、收款方、公钥、DER。先解释再运行；不要把多种变化混在一个实验里。'),local(2,'lab02.cpp'),part='实验尝试'),
+ slide('实践：排查多做一次哈希','为什么消息看起来相同，验签却失败？',code('auto h = sha256(message);\nauto wrong = sign_message(alice.get(), Bytes(h.begin(), h.end()));\nverify_message(pub.get(), message, wrong); // false')+flow(['签名端：SHA256(SHA256(message))','验签端：SHA256(message)'])+note('修复：把原始message交给sign_message。签名和验签必须约定相同输入与哈希层次，不能凭“都用了SHA-256”认为等价。'),local(2,'lab02.cpp'),part='实验尝试'),
+ old_two['实验：正常路径与篡改矩阵'],
+ old_two['实验：性能与载荷测量'],
+ old_two['BIP143：Bitcoin P2WPKH 签名路径'],
+ old_two['接入系统：授权验证模块'],
+]
+two[1]['body']=two[1]['body'].replace('小曲线用二进制倍加推演','由成熟库完成标量乘法')
+two[7]['body']=code('bash ../../code/lesson-02/run.sh')+table(['文件','本次实践'],[[local(2,'crypto.hpp'),'真实secp256k1密钥、编码、签名、验签'],[local(2,'lab02.cpp'),'正常授权、篡改、哈希误用与计时'],[local(2,'run.sh'),'编译运行；另附的小曲线检查无需先学习']])+note('C++17、pkg-config、OpenSSL 3。先读lab02.cpp，再进入crypto.hpp；小曲线程序作为课后材料。')
+two[-1]['body']=two[-1]['body'].replace('验收：推导ECDSA，区分模p/n，恢复复用nonce下的私钥，解释每种失败与单次哈希边界。','验收：独立生成secp256k1密钥、编码、签名、仅公钥验签；解释篡改拒绝和单次哈希边界，说明与Bitcoin交易签名的差异。')
+two[-2]['part']='实验尝试'
+
+
+# Explain the three names through their roles; keep background at the end.
+two[1] = slide('secp256k1、ECDSA 与 Schnorr','分别是什么？在签名和验签中负责什么？',table(['名称','是什么','作用与Bitcoin用途'],[
+ ['secp256k1','一套标准椭圆曲线参数','提供密钥和签名运算的底层基础；ECDSA和BIP340 Schnorr都使用它。'],
+ ['ECDSA','椭圆曲线数字签名算法','用私钥产生签名，用公钥验证；Bitcoin传统与SegWit v0使用，本课实际操作它。'],
+ ['Schnorr（BIP340）','另一种数字签名算法的Bitcoin规范','同样负责签名与验签；用于Taproot，本课只认识用途。']])+flow(['选择secp256k1','生成密钥','用ECDSA签名 / 验签'])+note('secp256k1不是签名算法；ECDSA和Schnorr是两种签名方案。libsecp256k1是实现库的名字；本课通过OpenSSL EVP调用secp256k1上的ECDSA。'),'<a href="https://bips.dev/340/">BIP340</a> · <a href="https://bips.dev/341/">BIP341</a>')
+two[2] = slide('签名与验签的输入输出','私钥留在钱包，验证端究竟拿到什么？',cols('<h2>签名端</h2>'+flow(['私钥 + 消息字节','ECDSA签名接口','签名字节']),'<h2>验证端</h2>'+flow(['公钥 + 同一消息 + 签名','ECDSA验签接口','通过 / 拒绝']))+ul('私钥只用于生成签名，不发送给验证端。','验证端使用预期授权者的公钥，不能接受任意替换的公钥。','编码或哈希约定必须一致；任何一项输入不对应，都不能当作有效授权。')+note('接下来直接查看公钥、消息和签名在代码中的类型与调用方式。'))
+two.extend([
+ slide('附录 A · 有限域与模逆','库内部如何完成有范围约束的计算？',ul('有限域规定底层数值计算的范围和规则。','模逆是完成部分底层计算所需的工具。','这些运算由密码学库处理；应用代码调用密钥生成、签名和验签接口。')+note('本课不实现模逆，不展开数学推导。'),part='附录'),
+ slide('附录 B · 椭圆曲线点与点群','公钥在库内部以什么形式参与运算？',ul('公钥在数学上对应曲线点；应用中使用库公钥对象或标准编码。','点群描述这些点参与运算时遵守的规则。','压缩公钥的解析与有效性检查交给库，不自行构造坐标。')+note('本课关注公钥导出、编码和正确传入验签接口。'),part='附录'),
+ slide('附录 C · 点加与倍点','密钥和签名计算依赖哪些底层操作？',ul('点加、倍点是曲线运算的基本操作。','它们被组合用于公钥生成、签名和验签。','库处理特殊情况、有效性及实现细节；应用代码不直接操作曲线点。')+note('本课不展示坐标公式，不要求手算。'),part='附录'),
+ slide('附录 D · 标量乘法与二进制倍加','库如何高效完成公钥与签名中的曲线计算？',ul('标量乘法是将私钥等数值与曲线点结合的底层运算。','二进制倍加是理解这种运算的一种方法；生产库可采用不同优化。','使用成熟库完成真实secp256k1运算，不把教学循环用于私钥处理。')+note('本课验收仍是：正确生成密钥、签名、验签，并验证失败场景。'),part='附录')
+])
+
+
+# Insert between the previous pages 8 and 9: operational pseudocode, not equations.
+two.insert(8, slide('签名与验签：步骤伪代码','输入、算法调用、错误分支与返回值',cols('<h2>签名</h2>'+code('FUNCTION SignPayment(sk, draft) → Bytes\n    REQUIRE IsValidSecretKey(sk, secp256k1)\n\n    message ← Encode(draft)\n    digest  ← SHA256(message)\n    signature ← ECDSA.SignDigest(sk, digest)\n\n    IF signature = ERROR THEN\n        RAISE SigningError\n    END IF\n\n    RETURN DER.Encode(signature)\nEND FUNCTION'),'<h2>验签</h2>'+code('FUNCTION VerifyPayment(pk, draft, encodedSig) → Boolean\n    IF NOT IsValidPublicKey(pk, secp256k1) THEN\n        RETURN FALSE\n    END IF\n    signature ← DER.Decode(encodedSig)\n    IF signature = ERROR THEN\n        RETURN FALSE\n    END IF\n    message ← Encode(draft)\n    digest  ← SHA256(message)\n    RETURN ECDSA.VerifyDigest(pk, digest, signature)\nEND FUNCTION'))+note('ECDSA使用secp256k1；pk是预期授权者的公钥。SignDigest / VerifyDigest的内部步骤见下两页；实际EVP消息接口将SHA-256与ECDSA合并执行，调用者只传原文。'),local(2,'crypto.hpp'),part='实验尝试'))
+
+
+# Expand the two digest-level primitives immediately after their caller.
+ECDSA_SIGN_PSEUDO = 'FUNCTION ECDSA.SignDigest(d, digest) → (r, s)\n    REQUIRE 1 ≤ d < n AND Length(digest) = 32\n    z ← BytesToIntegerBE(digest)\n    LOOP\n        k ← SecureRandomInteger(1, n − 1)\n        R ← ScalarMultiply(k, G)\n        r ← XCoordinate(R) MOD n\n        IF r = 0 THEN\n            CONTINUE\n        END IF\n        s ← (ModInverse(k, n) × (z + r × d)) MOD n\n        IF s ≠ 0 THEN\n            RETURN (r, s)\n        END IF\n    END LOOP\nEND FUNCTION'
+ECDSA_VERIFY_PSEUDO = 'FUNCTION ECDSA.VerifyDigest(Q, digest, (r, s)) → Boolean\n    IF Length(digest) ≠ 32 THEN RETURN FALSE END IF\n    IF Q = O THEN RETURN FALSE END IF\n    IF NOT IsOnSecp256k1(Q) THEN RETURN FALSE END IF\n    IF ScalarMultiply(n, Q) ≠ O THEN RETURN FALSE END IF\n    IF NOT (1 ≤ r < n AND 1 ≤ s < n) THEN\n        RETURN FALSE\n    END IF\n    z  ← BytesToIntegerBE(digest)\n    w  ← ModInverse(s, n)\n    u1 ← (z × w) MOD n\n    u2 ← (r × w) MOD n\n    X  ← PointAdd(ScalarMultiply(u1, G),\n                  ScalarMultiply(u2, Q))\n    IF X = O THEN RETURN FALSE END IF\n    RETURN (XCoordinate(X) MOD n) = r\nEND FUNCTION'
+two[9:9] = [
+ slide('ECDSA.SignDigest：签名内部步骤','输入私钥与32字节摘要，输出签名数对。',code(ECDSA_SIGN_PSEUDO)+note('d：私钥；G：标准基点；n：G的阶；k：内部nonce。点运算在secp256k1上执行；标量计算取模n。r或s为0时重新生成k。'),'<a href="https://www.secg.org/sec1-v2.pdf">SEC 1 v2.0 §4.1.3</a>',part='实验尝试'),
+ slide('ECDSA.VerifyDigest：验签内部步骤','只使用预期公钥、同一摘要和签名，不需要私钥。',code(ECDSA_VERIFY_PSEUDO)+note('O：无穷远点；IsOnSecp256k1检查坐标范围与曲线关系。摘要按大端转整数；此处限定SHA-256与secp256k1，DER解析由外层完成。'),'<a href="https://www.secg.org/sec1-v2.pdf">SEC 1 v2.0 §4.1.4</a>',part='实验尝试')
+]
+
 CSS='''
 :root{color-scheme:dark;--bg:#202328;--panel:#30343b;--line:#4b515c;--text:#edf0f5;--muted:#b2bbc8;--wire:#a9bcd3;--state:#88cec0;--gold:#e7be6d;--gold-bg:#4e4129}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:20px/1.65 "PingFang SC","Microsoft YaHei",sans-serif}a{color:#a5cbe9;text-underline-offset:.2em}button,input,select{font:inherit;color:inherit;background:var(--panel);border:1px solid #657180;border-radius:5px;padding:7px 12px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}:focus-visible{outline:2px solid white;outline-offset:4px}header{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid var(--line);padding:12px 3vw;font-size:14px}header nav{display:flex;gap:20px;flex-wrap:wrap}.brand{color:var(--muted)}main{max-width:1440px;margin:auto;padding:22px 4vw 100px}.slide{min-height:calc(100dvh - 180px)}.slide[hidden]{display:none}.part{color:var(--state);font-size:16px;margin:0 0 12px}.slide h1,.slide h2.slide-title{font-size:clamp(30px,3.2vw,46px);letter-spacing:-.035em;line-height:1.25;margin:0 0 14px}.question{font-size:22px;color:var(--muted);margin:0 0 26px}.slide h2:not(.slide-title),h3{font-size:23px;margin:8px 0 12px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}.columns>div{min-width:0}p{margin:12px 0}ul{padding-left:1.2em;margin:14px 0}li{margin:10px 0}b,strong{font-weight:650;color:#fff}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:19px}th,td{border-bottom:1px solid var(--line);padding:12px 16px;text-align:left;vertical-align:top}th{background:var(--panel);color:var(--muted);font-weight:500}td:first-child{color:var(--state)}pre{background:#262a30;border:1px solid var(--line);border-left:3px solid var(--wire);padding:18px 22px;overflow:auto;tab-size:4;font:17px/1.55 "SFMono-Regular",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}code{font-family:"SFMono-Regular",Consolas,monospace;color:#d7e5f4}p code,li code,td code{font-size:.88em}.formula{font-family:"Cambria Math","STIX Two Math","PingFang SC",serif;font-size:clamp(22px,2.3vw,31px);padding:20px 24px;background:var(--panel);border-left:3px solid var(--state);line-height:1.9;margin:16px 0;overflow-wrap:anywhere}.takeaway{border-top:1px solid var(--line);padding-top:17px;margin-top:24px;color:var(--state);font-size:19px}.source{font-size:14px;color:var(--muted);margin-top:20px}.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:24px 0}.flow span{border:1px solid var(--line);background:var(--panel);padding:12px 16px;border-radius:5px}.flow span+span:before{content:'→';color:var(--wire);margin-right:12px}.architecture{margin-top:24px;border:1px solid var(--line);background:radial-gradient(#424852 1px,transparent 1px) 0 0/22px 22px;border-radius:8px;overflow:auto}.architecture svg{display:block;width:100%;min-width:780px}.module{fill:var(--panel);stroke:#636d7a}.hot{fill:var(--gold-bg);stroke:var(--gold);stroke-width:2}.svg-label,.svg-text{fill:var(--text);font-size:17px}.svg-small{fill:#c5ced9;font-size:14px}.edge{stroke:var(--wire);stroke-width:2}footer{position:fixed;bottom:0;inset-inline:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 3vw;display:flex;align-items:center;gap:12px;font-size:15px;z-index:2}.progress{height:3px;position:absolute;top:-2px;left:0;background:var(--state);width:0}footer .spacer{flex:1}.hint{color:var(--muted)}dialog{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;width:min(850px,92vw);max-height:85dvh;padding:24px}dialog::backdrop{background:#000a}dialog nav{display:grid;grid-template-columns:1fr 1fr;gap:6px}dialog a{display:block;padding:9px;border-bottom:1px solid var(--line);font-size:16px;text-decoration:none}dialog a[aria-current=page]{background:var(--panel);color:var(--state)}.dialog-head{display:flex;align-items:center;justify-content:space-between}form{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}form button{grid-column:2}.skip{position:fixed;top:-100px;background:var(--panel);z-index:10;padding:12px}.skip:focus{top:0}.reading .slide{display:block!important;min-height:0;border-bottom:1px solid var(--line);padding-bottom:60px;margin-bottom:60px}.reading main{max-width:1200px}.reading footer .paging{display:none}.reading .slide-title{scroll-margin-top:20px}
@@ -118,19 +175,20 @@ const initial=location.hash.match(/^#page-(\\d+)$/);show(initial?Number(initial[
 const form=document.querySelector('#amount-form');if(form){function calculate(ev){ev?.preventDefault();const output=document.querySelector('#amount-output');try{const s=document.querySelector('#amount').value,rs=document.querySelector('#recipient').value;if(s.length>32||!/^\\d+(\\.\\d{1,8})?$/.test(s))throw Error('金额格式无效：数字＋最多8位小数，不接受空白或符号');const [w,f='']=s.split('.');const amount=BigInt(w)*100000000n+BigInt(f.padEnd(8,'0'));if(amount>2100000000000000n)throw Error('金额超过 MAX_MONEY');if(!/^\\d{1,10}$/.test(rs)||BigInt(rs)>4294967295n)throw Error('收款标识超出 uint32');const le=(v,n)=>Array.from({length:n},(_,i)=>Number((v>>BigInt(8*i))&255n).toString(16).padStart(2,'0')).join(' ');output.textContent=`amount_sat=${amount}\\nversion   | recipient   | amount\\n01        | ${le(BigInt(rs),4)} | ${le(amount,8)}\\nwire_bytes=13`}catch(err){output.textContent=`拒绝：${err.message}`}}form.addEventListener('submit',calculate);calculate()}
 '''
 
-def build(n,slides):
+def build(n,slides, *, adjacent=None, lesson_title=None, extra_css="", extra_js=""):
     directory=next(LESSONS.glob(f'{n:02}-*'))
-    other=next(LESSONS.glob(f'{3-n:02}-*'))
-    title=f'第{n:02}讲 · '+('字节、金额与确定性编码' if n==1 else '密钥、哈希与数字签名')
+    adjacent = 3-n if adjacent is None else adjacent
+    other=next(LESSONS.glob(f'{adjacent:02}-*'))
+    title=f'第{n:02}讲 · '+(lesson_title or ('字节、金额与确定性编码' if n==1 else '密钥、哈希与数字签名'))
     sections=[]
     for i,s in enumerate(slides):
         tag='h1' if i==0 else 'h2'
         sections.append(f'<section class="slide" id="page-{i+1}"><p class="part">{s["part"]} / {i+1:02}</p><{tag} class="slide-title" tabindex="-1">{s["title"]}</{tag}><p class="question">{s["q"]}</p>{s["body"]}'+(f'<p class="source">{s["source"]}</p>' if s['source'] else '')+'</section>')
     toc=''.join(f'<a href="#page-{i+1}" data-goto="{i}">{i+1:02}　{s["title"]}</a>' for i,s in enumerate(slides))
-    html=f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title><style>{CSS}</style></head><body>
-<a class="skip" href="#main">跳至课程内容</a><header><span class="brand">{title}</span><nav aria-label="课程资源"><a href="../课程展示/课程展示.html">课程大纲</a><a href="../00-overview/btc-wallet.html">系统架构</a><a href="讲义.md">完整讲义</a><a href="../{other.name}/课堂展示.html">第{3-n:02}讲</a></nav></header><main id="main">{''.join(sections)}</main>
+    html=f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title><style>{CSS}{extra_css}</style></head><body>
+<a class="skip" href="#main">跳至课程内容</a><header><span class="brand">{title}</span><nav aria-label="课程资源"><a href="../课程展示/课程展示.html">课程大纲</a><a href="../00-overview/btc-wallet.html">系统架构</a><a href="讲义.md">完整讲义</a><a href="../{other.name}/课堂展示.html">第{adjacent:02}讲</a></nav></header><main id="main">{''.join(sections)}</main>
 <footer><div class="progress"></div><button id="toc">目录</button><button id="reading" aria-pressed="false">连续阅读</button><button id="fullscreen">全屏</button><span class="spacer"></span><span class="hint">← → 翻页</span><button id="prev" class="paging">上一页</button><span id="count" aria-live="polite"></span><button id="next" class="paging">下一页</button></footer>
-<dialog aria-labelledby="toc-title"><div class="dialog-head"><h2 id="toc-title">{title}</h2><button id="close">关闭</button></div><nav aria-label="课内目录">{toc}</nav></dialog><script>{JS}</script></body></html>'''
+<dialog aria-labelledby="toc-title"><div class="dialog-head"><h2 id="toc-title">{title}</h2><button id="close">关闭</button></div><nav aria-label="课内目录">{toc}</nav></dialog><script>{JS}{extra_js}</script></body></html>'''
     (directory/'课堂展示.html').write_text(html)
     print(f'{directory.name}: {len(slides)} pages')
 if __name__=='__main__':

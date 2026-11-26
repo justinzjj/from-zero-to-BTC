@@ -1,0 +1,28 @@
+02A：OpenSSL签名库调用实践
+验证日期：2026-11-25
+代码目录：from-zero-to-BTC/code/lesson-02-practice/
+编译环境：Apple clang 17.0.0，arm64；OpenSSL 3.6.4；C++17。
+
+在from-zero-to-BTC根目录运行全部：
+bash code/lesson-02-practice/run.sh
+单独运行第4个：
+bash code/lesson-02-practice/run.sh 04
+在本代码目录也可执行：bash run.sh 04
+可执行文件位于code/build/lesson-02-practice/，不混入课程材料。
+
+每个cpp均独立编译，不依赖crypto.hpp、其他demo或上次运行产生的文件。
+检查使用-std=c++17 -Wall -Wextra -Werror -O2，全部通过。
+额外以-fsanitize=address,undefined -fno-omit-frame-pointer -g编译运行全部demo，退出码0，无内存或未定义行为诊断。
+
+01：SHA256("abc")匹配固定标准向量，"abd"摘要不同。
+02：生成secp256k1密钥；仅公钥DER导出、导入、重新导出逐字节一致。
+03：签名生成成功，实际长度大于0且在已检查容量内；签名内容/长度随运行变化。
+04：原消息返回1；改消息、换密钥返回0；改签名没有返回1。
+05：原付款返回1；独立修改金额、收款人后均返回0。
+输出分别保存在正常运行输出.txt和内存检查输出.txt。
+
+课堂注意：
+- 第4/5个文件较长是因为保留独立运行所需的前序代码、中文参数注释及显式错误清理；不要求首次逐行重学前序步骤。
+- OpenSSL库函数直接出现在main中，没有自定义签名包装函数或高级C++特性。
+- 第5个是固定12字节的教学付款格式，不是Bitcoin交易；payer=1预先绑定到指定公钥。
+- 未实现余额、UTXO、重放保护或网络广播，不用单次验签结果代替完整交易验证。

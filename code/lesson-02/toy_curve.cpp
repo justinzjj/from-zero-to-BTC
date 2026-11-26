@@ -65,8 +65,10 @@ Point multiply(int k, Point q) {
 std::optional<Signature> sign_digest(int z, int d, int k) {
     if (d < 1 || d >= n || k < 1 || k >= n)
         throw std::invalid_argument("d and k must be in [1,n-1]");
+    // R=kG；r=x_R mod n。点坐标运算模p，这里取签名标量模n。
     int r = multiply(k, G).x % n;
     if (r == 0) return std::nullopt;
+    // s=k^(-1)*(z+r*d) mod n；nonce k在不同消息间不安全复用会泄露d。
     int s = mod(inverse(k, n) * (mod(z, n) + r*d), n);
     if (s == 0) return std::nullopt;
     return Signature{r, s};
@@ -75,8 +77,10 @@ std::optional<Signature> sign_digest(int z, int d, int k) {
 bool verify_digest(int z, Signature sig, Point public_key) {
     if (sig.r < 1 || sig.r >= n || sig.s < 1 || sig.s >= n) return false;
     if (!on_curve(public_key) || !multiply(n, public_key).infinity) return false;
+    // w=s^(-1)，u1=z*w，u2=r*w，均模n。
     int w = inverse(sig.s, n);
     int u1 = mod(mod(z, n)*w, n), u2 = mod(sig.r*w, n);
+    // X=u1*G+u2*Q；正确签名下X=(z+r*d)*s^(-1)*G=kG。
     Point x = add(multiply(u1, G), multiply(u2, public_key));
     return !x.infinity && x.x % n == sig.r;
 }

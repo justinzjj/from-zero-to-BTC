@@ -1,0 +1,14 @@
+2026-11-25 · 第 03 讲 C++ 验收
+环境：macOS 15.7.7 (24G720)，arm64，Apple clang 17.0.0，C++17。
+脚本优先使用 /opt/homebrew/opt/openssl@3/lib/pkgconfig；该目录的 pkg-config 报告 3.6.4，otool -L 确认链接 libcrypto.3.dylib 与 libssl.3.dylib。
+本讲目录运行：
+bash ../../code/lesson-03/run.sh
+EXTRA_CXXFLAGS='-O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all' bash ../../code/lesson-03/run.sh
+两次退出码 0，均打印 ALL CHECKS PASSED。sanitizer 运行无 ASan/UBSan 诊断。
+标准输出见同目录“正常与失败输出.txt”。测试中 15 次拒绝均比较有效记录数量、顺序以及每个字段，不比较结构体填充位。
+正例：预检无副作用、正常付款、花费后两条新记录、满容量边界、两入一出合并且零费用。查询越界返回 false，修改读取的副本不影响原账本。
+边界反例：仅改收款人被接受，txid 随内容改变。测试不能据此证明授权。
+本机 sizeof(Transaction)=216、sizeof(Coin)=56、sizeof(Ledger)=232 字节。固定样例教学编码 63 字节；无性能基准结论。
+测试范围是单进程、单线程、固定夹具；未实测 Linux、Windows 或其他编译器。
+另从 /tmp 调用 run.sh 的绝对路径成功。讲义中两组 Bash 命令逐段执行完成，输出与实测文件一致。
+用 Python struct.pack 的 <I、<QI 独立拼接付款字段，用 hashlib 连做两次 SHA-256。63 字节与固定摘要见“付款推演.txt”；C++ 验收核对相同摘要。加入断言后再次运行 ASan/UBSan 与普通构建，输出均与实测文件逐字相同。最终保留普通构建。

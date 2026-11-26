@@ -1,0 +1,23 @@
+编译运行：01_hash
+sha256=ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+PASS 01: 标准向量正确，改消息后摘要不同
+编译运行：02_key_and_public
+public_DER_bytes=88
+PASS 02: 公钥导出与导入成功
+编译运行：03_sign
+signature_bytes=70
+signature_DER=3044022017630460e050c59094862f9852e14e769ff0dbef34c33f010206f40bef1e1702022034da732cc8652f4648985e6c613353efe9be16550b9521f81235739a90e96b1b
+PASS 03: 签名生成成功；有效性在下一个demo验证
+编译运行：04_verify
+signature_bytes=71
+original=1 (expected 1)
+changed_message=0 (expected 0)
+changed_signature_rejected=1
+wrong_key=0 (expected 0)
+PASS 04: 原消息通过；消息、公钥、签名改变均未通过
+编译运行：05_payment
+signature_bytes=70
+original=1 (expected 1)
+changed_amount=0 (expected 0)
+changed_receiver=0 (expected 0)
+PASS 05: 固定付款字节可以签名；改金额或收款方后旧签名失败

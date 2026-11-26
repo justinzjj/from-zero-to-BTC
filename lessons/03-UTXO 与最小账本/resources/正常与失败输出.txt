@@ -1,0 +1,24 @@
+BEFORE
+0100000000000000000000000000000000000000000000000000000000000000:0  owner=1  sat=100000
+ACCEPT fee=1000
+AFTER
+096003dcc53f5853d941f4cb9ff51934b988bec1d4670b9e3a1e40bfa623ecc7:0  owner=2  sat=60000
+096003dcc53f5853d941f4cb9ff51934b988bec1d4670b9e3a1e40bfa623ecc7:1  owner=1  sat=39000
+replay -> missing or spent | unchanged
+same input twice -> duplicate input | unchanged
+second input missing -> missing or spent | unchanged
+edit after successful preview -> overspend | unchanged
+negative second output -> output range | unchanged
+above limit -> output range | unchanged
+running sum above limit -> output range | unchanged
+would overflow int64 -> output range | unchanged
+bad vin length -> input count | unchanged
+bad vin length -> input count | unchanged
+bad vin length -> input count | unchanged
+bad vout length -> output count | unchanged
+bad vout length -> output count | unchanged
+bad vout length -> output count | unchanged
+capacity -> ledger full | unchanged
+recipient-only edit -> ACCEPT | authorization unchecked
+sizeof(Transaction)=216 sizeof(Coin)=56 sizeof(Ledger)=232
+ALL CHECKS PASSED
